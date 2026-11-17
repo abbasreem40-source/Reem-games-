@@ -28,7 +28,90 @@ function familyGeometry(){if(baby)pigeon({...baby,x:-.25,y:1.87,z:-4.25,chick:tr
 wings=function(){if(mode!=='air')return originalWings();const prior=mode;mode='lap';originalWings();mode=prior};
 step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floor','perch','box'].includes(mode))outsideFlight=false;if(mode==='roof'||mode==='localRoof')outsideFlight=true;checkHatch();if(mode==='air'&&time>nextFlap){flap();nextFlap=time+.27}if(time>backgroundAt){playCoo(rand()>.5?'male':'female',true);backgroundAt=time+7+rand()*9}if(time>flutterAt){if(rand()>.5)flap(true);flutterAt=time+5+rand()*10}if(time>autoSaveAt){save();autoSaveAt=time+5}};let backgroundAt=6,flutterAt=4,autoSaveAt=5;
 // Clearer garden, paths, planted borders, roof terraces, and soft clouds.
-geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let r of roofs.slice(1)){box(r.x,r.h-.07,r.z,r.w,.14,r.d,'#8c8074');for(let x of [-1,1])box(r.x+x*r.w/2,r.h+.13,r.z,.1,.35,r.d,'#9a8e7e');ell(r.x,r.h+.015,r.z,.65,.012,.65,'#d7bf76');ell(r.x,r.h+.03,r.z,.48,.01,.48,'#8c8074')}for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');const details=upload(geo);geo=[];
+geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let r of roofs.slice(1)){box(r.x,r.h-.07,r.z,r.w,.14,r.d,'#8c8074');for(let x of [-1,1])box(r.x+x*r.w/2,r.h+.13,r.z,.1,.35,r.d,'#9a8e7e');ell(r.x,r.h+.015,r.z,.65,.012,.65,'#d7bf76');ell(r.x,r.h+.03,r.z,.48,.01,.48,'#8c8074')}for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');
+
+/* GARDEN BENCH, MAN AND FLOWERS */
+
+// Wooden bench backrest and armrests
+box(5, 1.0, 9.3, 2.1, 0.55, 0.12, '#937049');
+box(4.05, 0.7, 9, 0.12, 0.12, 0.85, '#76543A');
+box(5.95, 0.7, 9, 0.12, 0.12, 0.85, '#76543A');
+
+// Brown shoes
+for (let x of [4.8, 5.2]) {
+  box(x, 0.22, 8.56, 0.27, 0.12, 0.34, '#5C4030');
+}
+
+// Grey trousers and seated legs
+for (let x of [4.8, 5.2]) {
+  box(x, 0.42, 8.72, 0.22, 0.28, 0.26, '#7E8185');
+  box(x, 0.60, 8.98, 0.28, 0.14, 0.52, '#7E8185');
+}
+
+// Grey zip-up jacket
+box(5, 1.02, 9.02, 0.82, 0.82, 0.42, '#7A7D80');
+
+// Jacket zipper
+box(5, 1.0, 8.8, 0.03, 0.62, 0.03, '#D7D7D2');
+
+// Camouflage shoulders
+for (let x of [4.72, 5.28]) {
+  box(x, 1.28, 9, 0.22, 0.16, 0.26, '#5F6B4D');
+  ell(x, 1.30, 8.93, 0.07, 0.04, 0.05, '#7A5F43');
+  ell(x, 1.25, 9.04, 0.05, 0.03, 0.04, '#3F4A34');
+}
+
+// Left arm
+box(4.5, 0.98, 9, 0.18, 0.56, 0.18, '#7A7D80');
+ell(4.48, 0.63, 8.95, 0.09, 0.11, 0.09, '#C89A78');
+
+// Right arm holding tea
+box(5.42, 1.03, 8.96, 0.18, 0.42, 0.18, '#7A7D80');
+box(5.62, 0.83, 8.78, 0.16, 0.28, 0.16, '#7A7D80');
+ell(5.72, 0.66, 8.66, 0.09, 0.11, 0.09, '#C89A78');
+
+// Cup of tea
+box(5.84, 0.68, 8.53, 0.13, 0.14, 0.13, '#E8E0D2');
+ell(5.84, 0.75, 8.53, 0.055, 0.01, 0.055, '#8B5A36');
+ell(5.91, 0.68, 8.53, 0.035, 0.05, 0.015, '#E8E0D2');
+
+// Neck and head
+box(5, 1.47, 9, 0.16, 0.14, 0.16, '#C89A78');
+ell(5, 1.72, 9, 0.24, 0.29, 0.22, '#C89A78');
+
+// Short beard stubble
+ell(5, 1.60, 8.84, 0.16, 0.08, 0.09, '#6B5B50');
+ell(4.92, 1.63, 8.83, 0.06, 0.05, 0.03, '#6B5B50');
+ell(5.08, 1.63, 8.83, 0.06, 0.05, 0.03, '#6B5B50');
+
+// Eyes
+ell(4.92, 1.75, 8.79, 0.02, 0.02, 0.01, '#2A2320');
+ell(5.08, 1.75, 8.79, 0.02, 0.02, 0.01, '#2A2320');
+
+// Nose
+ell(5, 1.67, 8.78, 0.04, 0.06, 0.04, '#B98562');
+
+// Beige cowboy hat
+box(5, 1.97, 9, 0.92, 0.05, 0.66, '#D7C29B');
+ell(5, 2.13, 9, 0.30, 0.22, 0.25, '#CDB387');
+box(5, 2.03, 9, 0.52, 0.04, 0.34, '#8A6A48');
+
+// Colourful flowers near the bench
+for (let i = 0; i < 24; i++) {
+  let x = 3.2 + rand() * 3.7;
+  let z = 10.1 + rand() * 2.5;
+
+  rod([x, 0.05, z], [x, 0.35, z], 0.018, '#487B43');
+
+  ell(
+    x, 0.38, z,
+    0.11, 0.09, 0.11,
+    i % 3 === 0 ? '#F1C96A' :
+    i % 3 === 1 ? '#E8A5BF' : '#C7A1E8'
+  );
+}
+
+const details=upload(geo);geo=[];
 $('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
 $('backup').onclick=()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Simsim-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Save exported. Keep this file to restore on another browser.')};$('restore').onclick=()=>$('saveFile').click();$('saveFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;restoreGame(JSON.parse(await file.text()));save();toast('Your partner, family and progress have been restored.')}catch{toast('That save could not be read. Your current game has been kept.')}e.target.value=''};
 $('ambience').oninput=e=>{ambienceVolume=+e.target.value;save()};$('effects').oninput=e=>{effectsVolume=+e.target.value;save()};window.addEventListener('keydown',e=>{if(!started||paused||e.repeat)return;({v:toggleView,l:landNear,r:returnHome})[e.key.toLowerCase()]?.()});window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){save();activeSounds.forEach(s=>s.pause())}});
