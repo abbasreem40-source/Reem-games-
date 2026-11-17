@@ -55,14 +55,14 @@ function cooSound(freq=220,duration=.55,volume=effectsVolume){if(muted||!audio)r
 function flap(ambient=false){if(muted||!audio)return;let n=Math.floor(audio.sampleRate*.19),buffer=audio.createBuffer(1,n,audio.sampleRate),a=buffer.getChannelData(0);for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*Math.pow(Math.sin(i/n*Math.PI),2);let source=audio.createBufferSource(),filter=audio.createBiquadFilter(),v=audio.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.value=900;v.gain.value=(ambient?ambienceVolume*.18:effectsVolume*.13);source.connect(filter).connect(v).connect(audio.destination);source.start()}
 // Version 2: shaped pigeon bodies, smoothly curved wings, true feather fans and sideways eyes.
 // Only the rendering changes. Existing bird colour definitions, behaviour and saves remain intact.
-function birdSurface(rings,colour,steps=22){
+function birdSurface(rings,colour,steps=22,yOffset=0){
   // Each ring defines y,z,width,depth. Connect smoothly to form one coherent silhouette.
   for(let i=0;i<rings.length-1;i++){
     const A=rings[i],B=rings[i+1];
     for(let j=0;j<steps;j++){
       const t=j*Math.PI*2/steps,u=(j+1)*Math.PI*2/steps;
       const pt=(r,q)=>[r[4]+Math.cos(q)*Math.max(.001,r[2]),
-                        r[0]+Math.sin(q)*Math.max(.001,r[3]),r[1]];
+                        r[0]+yOffset+Math.sin(q)*Math.max(.001,r[3]),r[1]];
       const shade=.86+.14*Math.cos(t)+.04*i/rings.length;
       quad(pt(A,t),pt(B,t),pt(B,u),pt(A,u),colour,shade);
     }
@@ -98,13 +98,13 @@ function pigeon(b,t,scale=1){
     [.425,z+.32,.112,.155,x],[.475,z+.34,.075,.094,x],
     [.49,z+.36,.012,.014,x]
   ];
-  birdSurface(profile,chest,24);
+  birdSurface(profile,chest,24,base);
   // Neck has a continuous curved shape instead of a stack of spherical blocks.
   birdSurface([
     [.37,z+.28,.1,.105,x],[.43,z+.30,.09,.11,x],
     [.50,z+.325,.088,.12,x],[.56,z+.345,.091,.13,x],
     [.61,z+.365,.098,.14,x],[.65,z+.39,.07,.1,x]
-  ],colour,20);
+  ],colour,20,base);
   const headZ=z+.39+nod;
   ell(x,base+.615,headZ,.108,.109,.115,colour,pattern*.18);
 
