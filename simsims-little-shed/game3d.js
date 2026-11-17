@@ -53,97 +53,120 @@ function nest(){if(motion)return;if(!partner)return toast('Boxes are private. Fo
 let audio=null,muted=true,nextCoo=0,nextFlap=0;function ensureAudio(){try{audio??=new (window.AudioContext||window.webkitAudioContext)();audio.resume()}catch{}}
 function cooSound(freq=220,duration=.55,volume=effectsVolume){if(muted||!audio)return;let now=audio.currentTime,o=audio.createOscillator(),v=audio.createGain();o.type='sine';o.frequency.setValueAtTime(freq,now);o.frequency.linearRampToValueAtTime(freq*.72,now+duration*.7);v.gain.setValueAtTime(.001,now);v.gain.linearRampToValueAtTime(.055*volume,now+.06);v.gain.exponentialRampToValueAtTime(.001,now+duration);o.connect(v).connect(audio.destination);o.start();o.stop(now+duration)}
 function flap(ambient=false){if(muted||!audio)return;let n=Math.floor(audio.sampleRate*.19),buffer=audio.createBuffer(1,n,audio.sampleRate),a=buffer.getChannelData(0);for(let i=0;i<n;i++)a[i]=(Math.random()*2-1)*Math.pow(Math.sin(i/n*Math.PI),2);let source=audio.createBufferSource(),filter=audio.createBiquadFilter(),v=audio.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.value=900;v.gain.value=(ambient?ambienceVolume*.18:effectsVolume*.13);source.connect(filter).connect(v).connect(audio.destination);source.start()}
-// Semi-realistic procedural pigeons: preserve each bird's assigned body and wing colours.
-// The geometry faces +Z; upgrade.js handles flock headings, movement and chick scaling.
+// Version 2: shaped pigeon bodies, smoothly curved wings, true feather fans and sideways eyes.
+// Only the rendering changes. Existing bird colour definitions, behaviour and saves remain intact.
+function birdSurface(rings,colour,steps=22,yOffset=0){
+  // Each ring defines y,z,width,depth. Connect smoothly to form one coherent silhouette.
+  for(let i=0;i<rings.length-1;i++){
+    const A=rings[i],B=rings[i+1];
+    for(let j=0;j<steps;j++){
+      const t=j*Math.PI*2/steps,u=(j+1)*Math.PI*2/steps;
+      const pt=(r,q)=>[r[4]+Math.cos(q)*Math.max(.001,r[2]),
+                        r[0]+yOffset+Math.sin(q)*Math.max(.001,r[3]),r[1]];
+      const shade=.86+.14*Math.cos(t)+.04*i/rings.length;
+      quad(pt(A,t),pt(B,t),pt(B,u),pt(A,u),colour,shade);
+    }
+  }
+}
+function birdFeather(a,b,width,colour){
+  // A curved feather taper, not a line painted on the wing.
+  const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2+.009,mz=(a[2]+b[2])/2;
+  const d=[b[0]-a[0],b[2]-a[2]],len=Math.max(.001,Math.hypot(...d));
+  const side=[-d[1]/len*width/2,0,d[0]/len*width/2];
+  const p=(v,k)=>[v[0]+side[0]*k,v[1],v[2]+side[2]*k];
+  quad(a,p([mx,my,mz],1),b,p([mx,my,mz],-1),colour);
+  tri(a,p([mx,my,mz],-1),b,colour,.82);
+}
 function pigeon(b,t,scale=1){
-  const x=b.x,z=b.z,y=b.y||0,body=b.c,wing=b.wing,pat=b.pattern||0;
-  const named=b.name||'';
-  const step=b.walking?Math.sin((b.gait||0)*2):0;
-  const bob=b.walking?Math.abs(step)*.014:0;
-  const headStep=b.walking?Math.sin((b.gait||0)+.5)*.019:0;
-  const base=y+bob;
-  const mix=(a,b,f)=>{
-    const ca=rgb(a),cb=rgb(b);
-    return ca.map((v,i)=>Math.max(0,Math.min(1,v*(1-f)+cb[i]*f)));
-  };
-  const pale=mix(wing,'#f4ece4',.35);
-  const dark=mix(wing,'#252b32',.26);
-  const featherEdge=named==='Kit Kat'?mix(wing,'#f4dcc3',.65):
-                    named==='B2 Bomber'?mix(wing,'#ecdfd4',.48):
-                    named==='Chocolate Dad'?mix(wing,'#ffffff',.65):
-                    pale;
-  const headZ=z+.19+headStep;
+  const x=b.x,z=b.z,y=b.y||0,base=y+(b.walking?Math.abs(Math.sin((b.gait||0)*2))*.012:0);
+  const colour=b.c,wing=b.wing,name=b.name||'',pattern=b.pattern||0;
+  const mix=(c,d,f)=>rgb(c).map((v,i)=>v*(1-f)+rgb(d)[i]*f);
+  const trim=name==='Kit Kat'?mix(wing,'#f5dcc0',.55):
+             name==='Chocolate Dad'?mix(wing,'#eceae2',.55):
+             name==='B2 Bomber'?mix(wing,'#e5d6c5',.52):mix(wing,'#c8c5be',.18);
+  const dark=mix(wing,'#393c42',.26);
+  const chest=name==='Chocolate Dad'?mix(colour,'#ffffff',.07):colour;
+  const walking=b.walking?Math.sin((b.gait||0)*2):0;
+  const nod=b.walking?Math.sin((b.gait||0)+.7)*.018:0;
 
-  // Tapered silhouette with a full chest and distinct upper back.
-  ell(x,base+.29,z-.02,.205*scale,.235*scale,.32*scale,body,pat*.08);
-  ell(x,base+.34,z+.17,.165*scale,.22*scale,.18*scale,body,pat*.07);
-  ell(x,base+.46,z+.15,.108*scale,.19*scale,.115*scale,body);
-  ell(x,base+.625,headZ,.119*scale,.117*scale,.122*scale,body,pat*.12);
+  // Continuous, sculpted torso. A full breast rises smoothly into a narrower back.
+  // Ring centres run from tail (-Z) to chest (+Z).
+  const profile=[
+    [.25,z-.38,.035,.055,x],[.27,z-.29,.13,.145,x],
+    [.30,z-.15,.192,.20,x],[.31,z+.015,.213,.233,x],
+    [.335,z+.15,.192,.226,x],[.37,z+.255,.15,.206,x],
+    [.425,z+.32,.112,.155,x],[.475,z+.34,.075,.094,x],
+    [.49,z+.36,.012,.014,x]
+  ];
+  birdSurface(profile,chest,24,base);
+  // Neck has a continuous curved shape instead of a stack of spherical blocks.
+  birdSurface([
+    [.37,z+.28,.1,.105,x],[.43,z+.30,.09,.11,x],
+    [.50,z+.325,.088,.12,x],[.56,z+.345,.091,.13,x],
+    [.61,z+.365,.098,.14,x],[.65,z+.39,.07,.1,x]
+  ],colour,20,base);
+  const headZ=z+.39+nod;
+  ell(x,base+.615,headZ,.108,.109,.115,colour,pattern*.18);
 
-  // Neck sheen: only pigeons assigned iridescent neck plumage.
-  if(named==='Simsim'||named==="Simsim's daughter"||named==="Sim Sim"){
-    ell(x,base+.46,z+.235,.097,.085,.052,'#4a806c');
-    ell(x,base+.405,z+.235,.09,.04,.046,'#715983');
-    for(let i=0;i<5;i++)ell(x+(i-2)*.026,base+.48,z+.277,.012,.027,.008,
-      i%2?'#4b8f76':'#756293');
-  }
-
-  // Paired wings: rounded shoulders, overlapping rows and tapered flight feathers.
+  // Rounded wing covers and rows of actual, overlapping tapered feathers.
   for(const side of [-1,1]){
-    ell(x+side*.164*scale,base+.32,z-.035,.064*scale,.157*scale,.249*scale,wing,pat*.45);
-    for(let i=0;i<7;i++){
-      const f=i/6;
-      ell(x+side*(.177+.015*f)*scale,
-          base+.34-.115*f,z+.092-.28*f,
-          .024*scale,.056*scale,(.092+.02*f)*scale,
-          i%3===0?featherEdge:(i%2?wing:mix(wing,'#faf6f1',.12)),pat*.15);
-      rod([x+side*.207,base+.325-.11*f,z+.09-.28*f],
-          [x+side*.207,base+.285-.12*f,z+.025-.28*f],.0017,dark);
+    ell(x+side*.183,base+.335,z-.035,.052,.137,.21,wing,pattern*.25);
+    // Primary feathers fan backwards into a recognisable folded wing tip.
+    for(let i=0;i<9;i++){
+      const u=i/8;
+      const root=[x+side*(.196+.005*Math.sin(u*3)),base+.34-.10*u,z+.135-.245*u];
+      const tip=[x+side*(.22+.01*Math.sin(u*3)),base+.205-.07*u,z-.13-.32*u];
+      birdFeather(root,tip,.035+(1-u)*.013,i%3===0?trim:wing);
     }
-    // Secondary feather edging follows original markings rather than changing bird identity.
-    for(let i=0;i<4;i++){
-      const zz=z-.17+i*.065;
-      ell(x+side*.185,base+.175,zz,.016,.045,.075,
-        pat>.8?dark:(i%2?wing:featherEdge));
+    // Scalloped coverts. Preserve each original feather colour and pattern.
+    for(let row=0;row<2;row++)for(let i=0;i<6;i++){
+      const zz=z+.095-i*.067-row*.055;
+      const yy=base+.385-row*.075-(i*.008);
+      ell(x+side*(.216+row*.006),yy,zz,.013,.030,.046,
+          (pattern>.8&&i%3===0)?dark:(i%2?wing:trim));
     }
-
-    // Eyes sit on the LEFT and RIGHT sides of the head (not forward-facing).
-    ell(x+side*.112,base+.656,headZ+.036,.017,.026,.028,'#ddd1b6');
-    ell(x+side*.127,base+.656,headZ+.04,.010,.019,.019,
-      named==='Princess'?'#201c1a':'#b67b35');
-    ell(x+side*.135,base+.656,headZ+.047,.005,.011,.012,'#1b2021');
-    ell(x+side*.139,base+.665,headZ+.055,.0025,.004,.004,'#ffffff');
-
-    // Thin pink legs with walking offsets and three visible forward toes.
-    const gait=b.walking?Math.sin((b.gait||0)+(side>0?Math.PI:0)):0;
-    const lift=Math.max(0,gait)*.036,forward=gait*.043;
-    rod([x+side*.09,base+.105,z+.025],
-        [x+side*.09,base+.026+lift,z+.07+forward],.011,'#bd817c');
-    for(let j=-1;j<=1;j++)rod(
-      [x+side*.09,base+.027+lift,z+.07+forward],
-      [x+side*.09+j*.039,base+.014+lift,z+.155+forward],.006,'#b87d78');
+    // Sideways-facing eyes, small orange irises, round dark pupils and eye rings.
+    ell(x+side*.102,base+.643,headZ+.04,.011,.025,.029,'#ded4bd');
+    ell(x+side*.111,base+.644,headZ+.042,.010,.019,.02,
+        name==='Princess'?'#302522':'#be843e');
+    ell(x+side*.120,base+.644,headZ+.045,.005,.012,.012,'#1a1d1e');
+    ell(x+side*.124,base+.650,headZ+.053,.0025,.004,.004,'#f8f7ee');
+    // Long delicate feet with a walking stride; three separate forward toes.
+    const g=b.walking?Math.sin((b.gait||0)+(side===1?Math.PI:0)):0;
+    const lift=Math.max(0,g)*.038,shift=g*.047;
+    rod([x+side*.085,base+.14,z+.005],[x+side*.09,base+.025+lift,z+.065+shift],.009,'#bc817d');
+    for(let k=-1;k<=1;k++)rod([x+side*.09,base+.025+lift,z+.065+shift],
+      [x+side*.09+k*.037,base+.015+lift,z+.155+shift],.0045,'#b67c78');
+  }
+  // Distinct tapered tail with separate long pointed feathers.
+  for(let i=-4;i<=4;i++){
+    birdFeather([x+i*.024,base+.22,z-.29],
+      [x+i*.037,base+.205,z-.61+Math.abs(i)*.023],.048,
+      i%3===0?trim:wing);
   }
 
-  // Layered, tapering tail feathers behind the body.
-  for(let i=-3;i<=3;i++){
-    ell(x+i*.033,base+.175,z-.325-Math.abs(i)*.01,
-        .023,.022,.19, i%2===0?wing:featherEdge,pat*.09);
+  // Subtle green/purple iridescence only on pigeons with those assigned markings.
+  if(['Simsim','Sim Sim',"Simsim's daughter"].includes(name)){
+    for(let i=0;i<8;i++){
+      const theta=(i/7-.5)*2.4;
+      ell(x+Math.sin(theta)*.081,base+.47+Math.cos(theta)*.012,
+        z+.399-Math.abs(Math.sin(theta))*.035,.024,.045,.018,
+        i%3===0?'#695d87':(i%2?'#408576':'#528d69'));
+    }
   }
-
-  // Anatomical pigeon beak and a light cere.
-  ell(x,base+.61,headZ+.112,.045,.024,.036,'#ded7c7');
-  tri([x-.038,base+.603,headZ+.125],
-      [x+.038,base+.603,headZ+.125],
-      [x,base+.571,headZ+.24],
-      named==='Kit Kat'?'#bf9689':'#747c7b');
-  if(named==='Chocolate Dad'){
-    // White facial and shoulder markings recorded for this bird.
-    ell(x,base+.665,headZ+.07,.065,.041,.052,'#eee9dc');
+  // Chocolate Dad: explicitly assigned white facial and wing markings.
+  if(name==='Chocolate Dad'){
+    ell(x,base+.695,headZ+.04,.056,.022,.05,'#ebe8df');
     for(let side of [-1,1])
-      ell(x+side*.18,base+.345,z-.08,.026,.066,.095,'#eee9dc');
+      ell(x+side*.204,base+.36,z+.005,.016,.057,.09,'#efede7');
   }
-  if(named==='B2 Bomber')
-    box(x+.08,base+.065,z,.035,.04,.035,'#398eac');
+  // Natural forward-pointed beak, pale cere and a subtle nostril.
+  ell(x,base+.593,headZ+.111,.043,.025,.026,'#ded8cb');
+  tri([x-.035,base+.593,headZ+.128],[x+.035,base+.593,headZ+.128],
+      [x,base+.56,headZ+.22],name==='Kit Kat'?'#b99487':'#7d8581');
+  for(const side of [-1,1])
+    ell(x+side*.027,base+.601,headZ+.139,.004,.003,.003,'#73736d');
+  if(name==='B2 Bomber')box(x+.08,base+.06,z,.035,.04,.035,'#398eac');
 }
 function mirror(){if(!partner)return;box(-1.1,2.22,-4.6,1.05,.85,.07,'#c7b58b');box(-1.1,2.22,-4.54,.94,.74,.04,'#a7bec0'); // A small rendered self portrait in the glass, body scale only.
 pigeon({name:'Simsim',x:-1.1,z:-4.42,y:1.87,c:'#d7dfe0',wing:'#a3afb4',pattern:.35},time,1+Math.min(seeds,120)*.006);if(egg)ell(-.6,1.94,-4.25,.07,.1,.07,'#f2eee1')}
