@@ -306,13 +306,13 @@ for(const side of [-1,1]){
  }
 }
 // Open park beyond the western edge of the neighbourhood.
-box(-77,-.09,-60,61,.11,66,'#8bab72');
-for(let z=-83;z<-35;z+=3)box(-75,.035,z,2.2,.06,2.8,'#b7ad91');
-for(let x of [-100,-56])for(let z=-84;z<-35;z+=8){
+box(-77,-.09,46,61,.11,62,'#8bab72');
+for(let z=21;z<72;z+=3)box(-75,.035,z,2.2,.06,2.8,'#b7ad91');
+for(let x of [-100,-56])for(let z=22;z<72;z+=8){
   box(x,1.2,z,.3,2.4,.3,'#6f6c53');
   ell(x,2.9,z,1.85,1.7,1.6,z%2?'#6c9161':'#597c54');
 }
-for(const z of [-62,-48]){
+for(const z of [38,52]){
  box(-68,.45,z,2.3,.13,.52,'#91765a');
  box(-68,.79,z+.25,2.3,.48,.09,'#866c55');
  for(const x of [-68.95,-67.05])box(x,.23,z,.09,.42,.1,'#735a4b');
@@ -327,9 +327,9 @@ for(let i=0;i<15;i++){
 // and occasionally takes a short walk beside his bench.
 let cowboyRestUntil=0;
 function cowboyPosition(){
- const walking=(time%75)>48 && time>cowboyRestUntil &&
+ const walking=(time%55)>20 && time>cowboyRestUntil &&
   mode!=='manLap' && mode!=='manShoulder';
- const t=Math.max(0,time%75-48);
+ const t=Math.max(0,time%55-20);
  return {x:walking?5+Math.sin(t*.13)*1.4:5,
          z:walking?9+Math.sin(t*.1)*.4:9,walking};
 }
