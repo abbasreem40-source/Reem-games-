@@ -38,7 +38,7 @@ function manPerch(which){
   if(Math.hypot(cam.x-5,cam.z-9)>5 || cam.y>7)
     return toast('Fly closer to the man by the bench.');
   const shoulder=which==='shoulder';
-  const point=shoulder?{x:4.54,y:1.71,z:9.03}:{x:5,y:1.02,z:8.72};
+  const point=shoulder?{x:4.54,y:1.43,z:9.03}:{x:5,y:1.02,z:8.72};
   travel(point,1.15,()=>{
     mode=shoulder?'manShoulder':'manLap';
     outsideFlight=true;
@@ -215,7 +215,7 @@ window.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='j')manPerch('shoulder');
   if(e.key.toLowerCase()==='k')manPerch('lap');
 });
-$('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
+$('shoulder').onclick=()=>manPerch('shoulder');$('lapSeat').onclick=()=>manPerch('lap');$('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
 $('backup').onclick=()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Simsim-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Save exported. Keep this file to restore on another browser.')};$('restore').onclick=()=>$('saveFile').click();$('saveFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;restoreGame(JSON.parse(await file.text()));save();toast('Your partner, family and progress have been restored.')}catch{toast('That save could not be read. Your current game has been kept.')}e.target.value=''};
 $('ambience').oninput=e=>{ambienceVolume=+e.target.value;save()};$('effects').oninput=e=>{effectsVolume=+e.target.value;save()};window.addEventListener('keydown',e=>{if(!started||paused||e.repeat)return;({v:toggleView,l:landNear,r:returnHome})[e.key.toLowerCase()]?.()});window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){save();activeSounds.forEach(s=>s.pause())}});
 const soundClick=$('sound').onclick;$('sound').onclick=()=>{soundClick();if(muted)activeSounds.forEach(s=>s.pause())};
