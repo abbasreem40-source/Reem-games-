@@ -72,9 +72,11 @@ function gardenHeight(x,z){
 }
 function manPerch(which){
   if(motion || mode!=='air' || !outsideFlight)return toast('Fly outside near the tea-drinking man first.');
-  if(Math.hypot(cam.x-5,cam.z-9)>5 || cam.y>7)
+  const man=cowboyPosition();
+  if(Math.hypot(cam.x-man.x,cam.z-man.z)>5 || cam.y>7)
     return toast('Fly closer to the man by the bench.');
   const shoulder=which==='shoulder';
+  cowboyRestUntil=time+90; // He sits down so shoulder or lap landing remains stable.
   const point=shoulder?{x:4.54,y:1.88,z:9.03}:{x:5,y:1.1,z:8.72};
   travel(point,1.15,()=>{
     mode=shoulder?'manShoulder':'manLap';
@@ -206,45 +208,13 @@ step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floo
 // Clearer garden, paths, planted borders, roof terraces, and soft clouds.
 geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let r of roofs.slice(1)){box(r.x,r.h-.07,r.z,r.w,.14,r.d,'#8c8074');for(let x of [-1,1])box(r.x+x*r.w/2,r.h+.13,r.z,.1,.35,r.d,'#9a8e7e');ell(r.x,r.h+.015,r.z,.65,.012,.65,'#d7bf76');ell(r.x,r.h+.03,r.z,.48,.01,.48,'#8c8074')}for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');
 
-/* GARDEN BENCH AND TEA-DRINKING MAN — lightweight fixed geometry */
+/* Wooden bench: stationary. Cowboy Hat Man is drawn as a moving character. */
 box(5,.45,9,2.4,.11,.75,'#87694d');
 for(const zz of [9.28,9.36])box(5,1.05,zz,2.3,.11,.06,'#92704e');
 for(const xx of [3.98,6.02]){
  box(xx,.24,9,.12,.48,.12,'#69523e');
  box(xx,.7,9,.12,.1,.78,'#806248');
 }
-for(const xx of [4.78,5.2]){
- ell(xx,.54,8.78,.19,.14,.36,'#85898a');
- ell(xx+(xx<5?.07:-.07),.31,8.48,.13,.27,.14,'#818585');
- ell(xx+(xx<5?.07:-.07),.1,8.35,.16,.095,.23,'#594438');
-}
-ell(5,1.07,9,.44,.46,.26,'#74787b');
-box(5,1.08,8.735,.022,.57,.018,'#d1d0cc');
-for(const xx of [4.7,5.3]){
- ell(xx,1.35,9,.16,.13,.21,'#677354');
- ell(xx,1.37,8.84,.07,.06,.055,'#8b8268');
- ell(xx+(xx<5?-.17:.17),1.03,8.98,.12,.28,.15,'#767b7b');
-}
-ell(5,1.72,9,.235,.285,.22,'#c39473');
-ell(5,1.565,8.853,.17,.055,.075,'#816d60');
-for(const xx of [4.87,5.13]){
- ell(xx,1.62,8.855,.06,.08,.05,'#8a7467');
- ell(xx,1.76,8.788,.026,.022,.013,'#352e29');
-}
-ell(5,1.665,8.776,.043,.064,.047,'#ba896b');
-ell(5,1.545,8.82,.077,.024,.023,'#a47766');
-ell(5,1.995,9,.54,.043,.4,'#c3a77d');
-ell(5,2.15,9,.31,.205,.285,'#c6ae86');
-for(let i=0;i<12;i++){
- const a=i*Math.PI*2/12;
- ell(5+Math.cos(a)*.305,2.055,9+Math.sin(a)*.28,.035,.022,.027,i%2?'#77543b':'#98744d');
-}
-ell(5.46,.99,8.93,.12,.23,.12,'#777d7d');
-rod([5.45,.88,8.87],[5.7,.9,8.61],.08,'#777d7d');
-ell(5.71,.91,8.58,.1,.09,.09,'#c39473');
-box(5.78,.99,8.54,.17,.17,.17,'#d5d1bf');
-ell(5.78,1.08,8.54,.074,.01,.074,'#895535');
-
 // Colourful flowers near the bench
 for (let i = 0; i < 24; i++) {
   let x = 3.2 + rand() * 3.7;
@@ -352,6 +322,69 @@ for(let i=0;i<15;i++){
  const x=-135+i*19;
  ell(x,-2.7,105,15,4.8+(i%4),18,i%2?'#8ba477':'#97b182');
 }
+
+// Autonomous but economical: a single character takes tea, looks around,
+// and occasionally takes a short walk beside his bench.
+let cowboyRestUntil=0;
+function cowboyPosition(){
+ const walking=(time%75)>48 && time>cowboyRestUntil &&
+  mode!=='manLap' && mode!=='manShoulder';
+ const t=Math.max(0,time%75-48);
+ return {x:walking?5+Math.sin(t*.13)*1.4:5,
+         z:walking?9+Math.sin(t*.1)*.4:9,walking};
+}
+function cowboyGeometry(){
+ const p=cowboyPosition(),x=p.x,z=p.z,walk=p.walking;
+ const sway=walk?Math.sin(time*7)*.07:Math.sin(time*.7)*.018;
+ // Two trouser legs: bent while sitting, taking little steps while walking.
+ if(walk){
+  for(const side of [-1,1]){
+   const dx=side*.17;
+   ell(x+dx,.43,z+Math.sin(time*7+side)*.09,.14,.33,.14,'#838788');
+   ell(x+dx,.11,z-.1+Math.sin(time*7+side)*.14,.17,.1,.21,'#554333');
+  }
+ }else{
+  for(const side of [-1,1]){
+   ell(x+side*.19,.53,z-.22,.17,.14,.37,'#85898a');
+   ell(x+side*.17,.29,z-.51,.12,.24,.13,'#85898a');
+   ell(x+side*.17,.1,z-.65,.16,.09,.22,'#594638');
+  }
+ }
+ const base=walk?.9:1.02;
+ ell(x,base+sway,z,.42,.43,.27,'#777c7a');
+ box(x,base, z-.266,.024,.57,.025,'#cfcdc4');
+ for(const side of [-1,1]){
+  const xx=x+side*.29;
+  ell(xx,base+.28+sway,z,.15,.12,.19,'#627154');
+  ell(xx,base+.29,z-.15,.07,.05,.055,'#8e836c');
+  ell(x+side*.41,base-.08+sway,z-.02,.12,.25,.14,'#767b7b');
+ }
+ // Natural face: brows, nose and short salt-and-pepper stubble.
+ const head=base+.7+sway,tilt=Math.sin(time*.42)*.02;
+ ell(x,head+tilt,z,.235,.275,.22,'#c39373');
+ ell(x,head-.14+tilt,z-.145,.166,.065,.075,'#847267');
+ for(const side of [-1,1]){
+  ell(x+side*.13,head-.08,z-.142,.055,.06,.048,'#8b7569');
+  ell(x+side*.12,head+.045,z-.211,.024,.019,.014,'#322e29');
+ }
+ ell(x,head-.06+tilt,z-.224,.042,.065,.041,'#b88564');
+ ell(x,head-.18,z-.2,.078,.02,.024,'#9b7364');
+ // Recognisable felt cowboy hat and braided leather band.
+ ell(x,head+.28+tilt,z,.54,.044,.4,'#c1a37b');
+ ell(x,head+.43+tilt,z,.30,.20,.29,'#c9ad83');
+ for(let i=0;i<10;i++){
+  const angle=i*Math.PI/5;
+  ell(x+Math.cos(angle)*.3,head+.34+tilt,z+Math.sin(angle)*.28,
+    .028,.025,.026,i%2?'#78533a':'#956f4a');
+ }
+ // Right hand holding a clear-looking amber tea glass.
+ ell(x+.44,base-.08,z-.04,.115,.21,.11,'#777a7a');
+ ell(x+.65,base-.26,z-.31,.09,.08,.09,'#c39373');
+ box(x+.71,base-.19,z-.37,.145,.135,.145,'#c2c6bd');
+ ell(x+.71,base-.12,z-.37,.063,.013,.063,'#8b5735');
+}
+const familyBeforeCowboy=familyGeometry;
+familyGeometry=function(){familyBeforeCowboy();cowboyGeometry()};
 const details=upload(geo);geo=[];
 window.addEventListener('keydown',e=>{
   if(!started||paused||e.repeat)return;
