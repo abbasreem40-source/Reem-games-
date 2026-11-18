@@ -4,6 +4,29 @@ const roofs=[{name:'House above the garden',x:0,z:68,w:15,d:9,h:7.6},{name:'Home
 const originalUi=ui,originalRender=render,originalMove=move,originalPigeon=pigeon,originalGoFly=goFly,originalPerch=perch,originalWings=wings,originalStep=step;
 let recordings={female:'',male:''};let cooFemale=new Audio(),cooMale=new Audio(),maleTimer=0;const activeSounds=new Set();
 function playCoo(who,ambient=false){if(muted||paused||!started)return;if(!recordings[who]){cooSound(who==='male'?190:245,.7,ambient?ambienceVolume*.3:effectsVolume);return}const sound=(who==='male'?cooMale:cooFemale).cloneNode();sound.volume=ambient?ambienceVolume*.32:effectsVolume;sound.currentTime=0;activeSounds.add(sound);sound.onended=()=>activeSounds.delete(sound);sound.play().catch(()=>{activeSounds.delete(sound);if(!ambient)cooSound(who==='male'?190:245,.7)});const limit=who==='male'?5:6;sound.ontimeupdate=()=>{if(sound.currentTime>=limit){sound.pause();activeSounds.delete(sound)}};setTimeout(()=>{sound.pause();sound.currentTime=0;activeSounds.delete(sound)},limit*1000)}
+
+// Soft layered pigeon-chorus ambience. Generated locally with WebAudio;
+// player-imported pigeon coos are still used by playCoo when supplied.
+let choirAt=4;
+function pigeonChorus(){
+ if(!audio||muted||paused||!started)return;
+ const now=audio.currentTime;
+ for(let v=0;v<2;v++){
+  const o=audio.createOscillator(),g=audio.createGain(),filter=audio.createBiquadFilter();
+  const start=now+v*.24,f=160+Math.random()*65;
+  o.type='sine';o.frequency.setValueAtTime(f,start);
+  o.frequency.linearRampToValueAtTime(f*.8,start+.18);
+  o.frequency.linearRampToValueAtTime(f*.94,start+.34);
+  o.frequency.linearRampToValueAtTime(f*.7,start+.62);
+  filter.type='lowpass';filter.frequency.value=600;
+  const volume=.024*ambienceVolume;
+  g.gain.setValueAtTime(.0001,start);
+  g.gain.linearRampToValueAtTime(Math.max(.0001,volume),start+.13);
+  g.gain.exponentialRampToValueAtTime(.0001,start+.7);
+  o.connect(filter).connect(g).connect(audio.destination);
+  o.start(start);o.stop(start+.72);
+ }
+}
 function logEvent(text){history.push({at:Date.now(),text});history=history.slice(-100)}
 function snapshot(){return {version:3,recordings,seeds,partner,egg,bonds,incubationStart,baby,offspring,history,thirdPerson,flightSeconds,flightCarry,ambienceVolume,effectsVolume,savedAt:Date.now()}}
 save=function(){const data=snapshot();try{const json=JSON.stringify(data);localStorage.setItem('simsim3d',json);localStorage.setItem('simsim3d-backup',json);saveWarning=false;$('saveState').textContent='Saved on this browser · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}catch{saveWarning=true;$('saveState').textContent='Browser save blocked — use Export save'}return data};
@@ -49,9 +72,11 @@ function gardenHeight(x,z){
 }
 function manPerch(which){
   if(motion || mode!=='air' || !outsideFlight)return toast('Fly outside near the tea-drinking man first.');
-  if(Math.hypot(cam.x-5,cam.z-9)>5 || cam.y>7)
+  const man=cowboyPosition();
+  if(Math.hypot(cam.x-man.x,cam.z-man.z)>5 || cam.y>7)
     return toast('Fly closer to the man by the bench.');
   const shoulder=which==='shoulder';
+  cowboyRestUntil=time+90; // He sits down so shoulder or lap landing remains stable.
   const point=shoulder?{x:4.54,y:1.88,z:9.03}:{x:5,y:1.1,z:8.72};
   travel(point,1.15,()=>{
     mode=shoulder?'manShoulder':'manLap';
@@ -129,49 +154,67 @@ animateBirds=function(dt){
  mate.y=(mate.y||0)+(targetY-(mate.y||0))*f;
  mate.flying=true;mate.walking=false;mate.heading=cam.yaw;
 };
-step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floor','perch','box'].includes(mode))outsideFlight=false;if(mode==='roof'||mode==='localRoof')outsideFlight=true;checkHatch();if(mode==='air'&&time>nextFlap){flap();nextFlap=time+.27}if(time>backgroundAt){playCoo(rand()>.5?'male':'female',true);backgroundAt=time+7+rand()*9}if(time>flutterAt){if(rand()>.5)flap(true);flutterAt=time+5+rand()*10}if(time>autoSaveAt){save();autoSaveAt=time+5}};let backgroundAt=6,flutterAt=4,autoSaveAt=5;
+
+// Lightweight group flight: reuse all existing pigeon meshes rather than making copies.
+let flockFlightUntil=0,flockFlightStarted=0,flockFlightReturning=false;
+function inviteFlock(){
+ if(!started||paused)return;
+ if(flockFlightUntil>time){
+   flockFlightUntil=0;flockFlightReturning=true;
+   toast('The flock is returning to the shed.');
+   return;
+ }
+ if(mode!=='air'||!outsideFlight)return toast('Fly outside first, then press G to invite everyone.');
+ flockFlightStarted=time;flockFlightUntil=time+55;flockFlightReturning=false;
+ toast('The flock answers your call! Fly together for a while. G calls everyone home.');
+}
+const animateBeforeGroupFlight=animateBirds;
+animateBirds=function(dt){
+ if(flockFlightUntil>time && mode==='air' && outsideFlight){
+   birds.forEach((b,i)=>{
+     const angle=(i/Math.max(1,birds.length))*Math.PI*2+time*.12;
+     const distance=1.7+(i%4)*.45,side=Math.cos(angle)*distance,back=Math.sin(angle)*distance;
+     const tx=cam.x+side*Math.cos(cam.yaw)-back*Math.sin(cam.y);
+     const tz=cam.z-side*Math.sin(cam.yaw)-back*Math.cos(cam.y);
+     const ty=Math.max(.6,cam.y-.3+Math.sin(time*4+i)*.22);
+     const k=Math.min(1,dt*3.1);
+     b.x+=(tx-b.x)*k;b.z+=(tz-b.z)*k;b.y=(b.y||0)+(ty-(b.y||0))*k;
+     b.flying=true;b.walking=false;b.heading=cam.yaw;b.goal=null;
+   });
+   return;
+ }
+ if(flockFlightUntil && time>=flockFlightUntil && !flockFlightReturning){
+   flockFlightReturning=true;flockFlightUntil=0;
+   toast('The flock is heading back to the shed.');
+ }
+ if(flockFlightReturning){
+   let settled=0;
+   birds.forEach((b,i)=>{
+     const tx=-2.1+(i%5)*1.05,tz=-2.7+Math.floor(i/5)*1.5,ty=0;
+     const k=Math.min(1,dt*1.2);
+     b.x+=(tx-b.x)*k;b.z+=(tz-b.z)*k;b.y=(b.y||0)+(ty-(b.y||0))*k;
+     b.flying=(b.y||0)>.08;b.heading=Math.atan2(tx-b.x,tz-b.z);
+     if(Math.hypot(b.x-tx,b.z-tz,b.y||0)<.25)settled++;
+   });
+   if(settled===birds.length){
+     flockFlightReturning=false;
+     birds.forEach(b=>{b.flying=false;b.goal=null;b.until=0});
+   }
+   return;
+ }
+ animateBeforeGroupFlight(dt);
+};
+step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floor','perch','box'].includes(mode))outsideFlight=false;if(mode==='roof'||mode==='localRoof')outsideFlight=true;checkHatch();if(mode==='air'&&time>nextFlap){flap();nextFlap=time+.27}if(time>backgroundAt){playCoo(rand()>.5?'male':'female',true);backgroundAt=time+8+rand()*10}if(time>choirAt){pigeonChorus();choirAt=time+3+rand()*5}if(time>flutterAt){if(rand()>.5)flap(true);flutterAt=time+5+rand()*10}if(time>autoSaveAt){save();autoSaveAt=time+5}};let backgroundAt=6,flutterAt=4,autoSaveAt=5;
 // Clearer garden, paths, planted borders, roof terraces, and soft clouds.
 geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let r of roofs.slice(1)){box(r.x,r.h-.07,r.z,r.w,.14,r.d,'#8c8074');for(let x of [-1,1])box(r.x+x*r.w/2,r.h+.13,r.z,.1,.35,r.d,'#9a8e7e');ell(r.x,r.h+.015,r.z,.65,.012,.65,'#d7bf76');ell(r.x,r.h+.03,r.z,.48,.01,.48,'#8c8074')}for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');
 
-/* GARDEN BENCH AND TEA-DRINKING MAN — lightweight fixed geometry */
+/* Wooden bench: stationary. Cowboy Hat Man is drawn as a moving character. */
 box(5,.45,9,2.4,.11,.75,'#87694d');
 for(const zz of [9.28,9.36])box(5,1.05,zz,2.3,.11,.06,'#92704e');
 for(const xx of [3.98,6.02]){
  box(xx,.24,9,.12,.48,.12,'#69523e');
  box(xx,.7,9,.12,.1,.78,'#806248');
 }
-for(const xx of [4.78,5.2]){
- ell(xx,.54,8.78,.19,.14,.36,'#85898a');
- ell(xx+(xx<5?.07:-.07),.31,8.48,.13,.27,.14,'#818585');
- ell(xx+(xx<5?.07:-.07),.1,8.35,.16,.095,.23,'#594438');
-}
-ell(5,1.07,9,.44,.46,.26,'#74787b');
-box(5,1.08,8.735,.022,.57,.018,'#d1d0cc');
-for(const xx of [4.7,5.3]){
- ell(xx,1.35,9,.16,.13,.21,'#677354');
- ell(xx,1.37,8.84,.07,.06,.055,'#8b8268');
- ell(xx+(xx<5?-.17:.17),1.03,8.98,.12,.28,.15,'#767b7b');
-}
-ell(5,1.72,9,.235,.285,.22,'#c39473');
-ell(5,1.565,8.853,.17,.055,.075,'#816d60');
-for(const xx of [4.87,5.13]){
- ell(xx,1.62,8.855,.06,.08,.05,'#8a7467');
- ell(xx,1.76,8.788,.026,.022,.013,'#352e29');
-}
-ell(5,1.665,8.776,.043,.064,.047,'#ba896b');
-ell(5,1.545,8.82,.077,.024,.023,'#a47766');
-ell(5,1.995,9,.54,.043,.4,'#c3a77d');
-ell(5,2.15,9,.31,.205,.285,'#c6ae86');
-for(let i=0;i<12;i++){
- const a=i*Math.PI*2/12;
- ell(5+Math.cos(a)*.305,2.055,9+Math.sin(a)*.28,.035,.022,.027,i%2?'#77543b':'#98744d');
-}
-ell(5.46,.99,8.93,.12,.23,.12,'#777d7d');
-rod([5.45,.88,8.87],[5.7,.9,8.61],.08,'#777d7d');
-ell(5.71,.91,8.58,.1,.09,.09,'#c39473');
-box(5.78,.99,8.54,.17,.17,.17,'#d5d1bf');
-ell(5.78,1.08,8.54,.074,.01,.074,'#895535');
-
 // Colourful flowers near the bench
 for (let i = 0; i < 24; i++) {
   let x = 3.2 + rand() * 3.7;
@@ -236,13 +279,120 @@ for(const [xx,zz] of [[-16,19],[16,29],[-17,39],[17,51]]){
 }
 // Coarse sea horizon in the distance, without thousands of water polygons.
 box(0,-.7,-158,300,.08,33,'#83adb9');
+
+// Woodingdean-inspired streets, differently detailed gardens and a distant
+// Happy Valley-style green park. This is a stylised interpretation, not a survey.
+for(const side of [-1,1]){
+ for(let i=0;i<5;i++){
+  const x=side*(25+i*14),z=-25-(i%2)*17,colour=i%2?'#b99077':'#cab5a4';
+  box(x,-.07,z+11,10,.12,10,'#8da77b');
+  box(x,0,z+9,1.2,.06,7,i%2?'#c0b9aa':'#a89f90');
+  for(let j=0;j<3;j++){
+   const bx=x+side*(3.1+j*.58),bz=z+6+j*.9;
+   ell(bx,.6,bz,.5,.55,.55,j%2?'#658359':'#7c9663');
+  }
+  if(i%2===0){
+   box(x-2,.13,z+5,2.8,.08,2.8,'#afaba1');
+   box(x-2,.38,z+5,1.5,.45,.6,'#796b5d');
+   ell(x+1.6,.85,z+7,.9,.65,.75,'#4d7654');
+  }else{
+   box(x+1,.09,z+6,2.4,.14,1.3,'#827e72');
+   ell(x-2,.85,z+8,.8,.7,.85,'#8b9a6d');
+  }
+  // Chimneys, framed windows and small dormers enliven distant rooftops.
+  box(x,2.5,z-3,1.0,1.1,.07,'#cbd4d0');
+  box(x,2.5,z-3.06,.065,1.14,.07,'#eee9de');
+  box(x+2.4,3,z-2.8,.7,1.8,.7,'#ad806a');
+ }
+}
+// Open park beyond the western edge of the neighbourhood.
+box(-77,-.09,46,61,.11,62,'#8bab72');
+for(let z=21;z<72;z+=3)box(-75,.035,z,2.2,.06,2.8,'#b7ad91');
+for(let x of [-100,-56])for(let z=22;z<72;z+=8){
+  box(x,1.2,z,.3,2.4,.3,'#6f6c53');
+  ell(x,2.9,z,1.85,1.7,1.6,z%2?'#6c9161':'#597c54');
+}
+for(const z of [38,52]){
+ box(-68,.45,z,2.3,.13,.52,'#91765a');
+ box(-68,.79,z+.25,2.3,.48,.09,'#866c55');
+ for(const x of [-68.95,-67.05])box(x,.23,z,.09,.42,.1,'#735a4b');
+}
+// Distinctive wider Downland green backdrop and suburban garden boundaries.
+for(let i=0;i<15;i++){
+ const x=-135+i*19;
+ ell(x,-2.7,105,15,4.8+(i%4),18,i%2?'#8ba477':'#97b182');
+}
+
+// Autonomous but economical: a single character takes tea, looks around,
+// and occasionally takes a short walk beside his bench.
+let cowboyRestUntil=0;
+function cowboyPosition(){
+ const walking=(time%55)>20 && time>cowboyRestUntil &&
+  mode!=='manLap' && mode!=='manShoulder';
+ const t=Math.max(0,time%55-20);
+ return {x:walking?5+Math.sin(t*.13)*1.4:5,
+         z:walking?9+Math.sin(t*.1)*.4:9,walking};
+}
+function cowboyGeometry(){
+ const p=cowboyPosition(),x=p.x,z=p.z,walk=p.walking;
+ const sway=walk?Math.sin(time*7)*.07:Math.sin(time*.7)*.018;
+ // Two trouser legs: bent while sitting, taking little steps while walking.
+ if(walk){
+  for(const side of [-1,1]){
+   const dx=side*.17;
+   ell(x+dx,.43,z+Math.sin(time*7+side)*.09,.14,.33,.14,'#838788');
+   ell(x+dx,.11,z-.1+Math.sin(time*7+side)*.14,.17,.1,.21,'#554333');
+  }
+ }else{
+  for(const side of [-1,1]){
+   ell(x+side*.19,.53,z-.22,.17,.14,.37,'#85898a');
+   ell(x+side*.17,.29,z-.51,.12,.24,.13,'#85898a');
+   ell(x+side*.17,.1,z-.65,.16,.09,.22,'#594638');
+  }
+ }
+ const base=walk?.9:1.02;
+ ell(x,base+sway,z,.42,.43,.27,'#777c7a');
+ box(x,base, z-.266,.024,.57,.025,'#cfcdc4');
+ for(const side of [-1,1]){
+  const xx=x+side*.29;
+  ell(xx,base+.28+sway,z,.15,.12,.19,'#627154');
+  ell(xx,base+.29,z-.15,.07,.05,.055,'#8e836c');
+  ell(x+side*.41,base-.08+sway,z-.02,.12,.25,.14,'#767b7b');
+ }
+ // Natural face: brows, nose and short salt-and-pepper stubble.
+ const head=base+.7+sway,tilt=Math.sin(time*.42)*.02;
+ ell(x,head+tilt,z,.235,.275,.22,'#c39373');
+ ell(x,head-.14+tilt,z-.145,.166,.065,.075,'#847267');
+ for(const side of [-1,1]){
+  ell(x+side*.13,head-.08,z-.142,.055,.06,.048,'#8b7569');
+  ell(x+side*.12,head+.045,z-.211,.024,.019,.014,'#322e29');
+ }
+ ell(x,head-.06+tilt,z-.224,.042,.065,.041,'#b88564');
+ ell(x,head-.18,z-.2,.078,.02,.024,'#9b7364');
+ // Recognisable felt cowboy hat and braided leather band.
+ ell(x,head+.28+tilt,z,.54,.044,.4,'#c1a37b');
+ ell(x,head+.43+tilt,z,.30,.20,.29,'#c9ad83');
+ for(let i=0;i<10;i++){
+  const angle=i*Math.PI/5;
+  ell(x+Math.cos(angle)*.3,head+.34+tilt,z+Math.sin(angle)*.28,
+    .028,.025,.026,i%2?'#78533a':'#956f4a');
+ }
+ // Right hand holding a clear-looking amber tea glass.
+ ell(x+.44,base-.08,z-.04,.115,.21,.11,'#777a7a');
+ ell(x+.65,base-.26,z-.31,.09,.08,.09,'#c39373');
+ box(x+.71,base-.19,z-.37,.145,.135,.145,'#c2c6bd');
+ ell(x+.71,base-.12,z-.37,.063,.013,.063,'#8b5735');
+}
+const familyBeforeCowboy=familyGeometry;
+familyGeometry=function(){familyBeforeCowboy();cowboyGeometry()};
 const details=upload(geo);geo=[];
 window.addEventListener('keydown',e=>{
   if(!started||paused||e.repeat)return;
+  if(e.key.toLowerCase()==='g')inviteFlock();
   if(e.key.toLowerCase()==='j')manPerch('shoulder');
   if(e.key.toLowerCase()==='k')manPerch('lap');
 });
-$('shoulder').onclick=()=>manPerch('shoulder');$('lapSeat').onclick=()=>manPerch('lap');$('coo').onclick=coo;$('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
+$('flockFlight').onclick=inviteFlock;$('shoulder').onclick=()=>manPerch('shoulder');$('lapSeat').onclick=()=>manPerch('lap');$('coo').onclick=coo;$('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
 $('backup').onclick=()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Simsim-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Save exported. Keep this file to restore on another browser.')};$('restore').onclick=()=>$('saveFile').click();$('saveFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;restoreGame(JSON.parse(await file.text()));save();toast('Your partner, family and progress have been restored.')}catch{toast('That save could not be read. Your current game has been kept.')}e.target.value=''};
 $('ambience').oninput=e=>{ambienceVolume=+e.target.value;save()};$('effects').oninput=e=>{effectsVolume=+e.target.value;save()};window.addEventListener('keydown',e=>{if(!started||paused||e.repeat)return;({v:toggleView,l:landNear,r:returnHome})[e.key.toLowerCase()]?.()});window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){save();activeSounds.forEach(s=>s.pause())}});
 const soundClick=$('sound').onclick;$('sound').onclick=()=>{soundClick();if(muted)activeSounds.forEach(s=>s.pause())};

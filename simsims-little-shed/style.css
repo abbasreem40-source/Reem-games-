@@ -2,3 +2,23 @@
 
 #extras{position:absolute;right:24px;top:120px;display:flex;flex-direction:column;gap:7px;width:150px}#extras button{padding:9px;font-size:10px}#extras label{font-size:10px;display:grid;gap:3px}#extras input[type=range]{width:100%;accent-color:#ddc995}#saveState{font-size:8px;letter-spacing:0}.topButtons{flex-wrap:wrap;justify-content:flex-end}#walk{grid-template-columns:repeat(3,38px)}@media(max-width:700px){#extras{top:170px;right:12px;width:115px}#extras button{padding:7px}#extras label{font-size:8px}aside{width:115px}nav{bottom:45px}footer{font-size:7px;padding:0 10px}.topButtons{max-width:200px}}
 #extras details{border:1px solid #fff3;border-radius:8px;background:#273b2ed9;padding:10px;backdrop-filter:blur(12px)}#extras summary{font-size:10px;cursor:pointer}#extras details button{width:100%;margin-top:7px}#extras details label{margin-top:10px}
+
+/* Life of Simsim: sky title followed by accessible flight-school tutorial. */
+#intro{z-index:40}
+#intro section[hidden]{display:none!important}
+#intro .sky-screen{position:relative;width:min(780px,96vw);max-width:780px;min-height:470px;overflow:hidden;border:1px solid #ffffff95;border-radius:24px;background:linear-gradient(165deg,#65b9ef 0%,#adddf4 53%,#e2f5f6 83%,#e9e9cc 100%);color:#20465b;box-shadow:0 30px 100px #102e4866;padding:38px;display:flex;align-items:center;justify-content:center;text-align:center}
+.sky-content{position:relative;z-index:2;width:min(460px,100%)}
+#intro .sky-screen h2{font:400 clamp(53px,9vw,92px)/.95 Georgia,serif;letter-spacing:-.04em;margin:24px 0;text-shadow:0 2px 0 #ffffff75;color:#20445c}
+#intro .sky-screen h2 em{font-style:italic;color:#376c8d}
+#intro .sky-screen p{font-size:15px;color:#35617a;max-width:350px;margin:0 auto 27px}
+#intro .sky-screen small{color:#315a72;letter-spacing:2px}
+#intro .sky-screen button{width:auto;padding:15px 42px;border-radius:99px;background:#2b5972;font-size:15px}
+.sky-cloud{position:absolute;z-index:1;left:-30%;height:65px;width:160px;background:#ffffffb5;border-radius:50%;filter:blur(2px);box-shadow:45px -25px 0 12px #ffffffb5,100px -5px 0 14px #ffffffb5;animation:cloudDrift 24s linear infinite}
+.cloud-one{top:20%;animation-duration:23s}.cloud-two{top:45%;animation-duration:35s;animation-delay:-12s;transform:scale(.7);opacity:.75}.cloud-three{top:72%;animation-duration:29s;animation-delay:-18s;transform:scale(1.2);opacity:.55}
+@keyframes cloudDrift{from{left:-50%}to{left:125%}}
+#tutorialScreen{max-height:90vh;overflow-y:auto;width:min(620px,96vw)}
+.tutorial-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:18px 0}
+.tutorial-grid div{padding:12px;border:1px solid #d8dfd0;border-radius:9px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.tutorial-grid b{color:#344e45}.tutorial-grid span{font-size:11px;color:#6e7e73}
+@media(max-width:550px){#intro .sky-screen{min-height:440px;padding:24px}#tutorialScreen{padding:22px}.tutorial-grid{grid-template-columns:1fr;gap:6px}.tutorial-grid div{padding:8px}.tutorial-grid span{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.sky-cloud{animation:none}}
