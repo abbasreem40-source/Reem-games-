@@ -26,6 +26,19 @@ button:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #objective span{display:block;color:#d1dbb2;font-size:13px;margin-bottom:3px}
 #objective strong{display:block;font-size:16px;font-weight:600}
 #pause{position:absolute;right:20px;top:20px;pointer-events:auto;min-height:34px;padding:5px 10px}
+#audio{position:absolute;right:90px;top:20px;pointer-events:auto;min-height:34px;padding:5px 10px}
+#mix{position:absolute;left:50%;top:50%;translate:-50% -50%;width:1px;height:1px;text-align:center}
+#mix-ring{position:absolute;left:0;top:0;width:80px;height:80px;translate:-50% -50%;border:1px solid #e5efc5b0;border-radius:50%}
+#mix:not(.pour-panel) #mix-ring{border-radius:9px;border-style:dashed}
+#mix-dot{position:absolute;left:34px;top:34px;width:10px;height:10px;background:#e3eead;border-radius:50%;box-shadow:0 0 0 2px #242b19}
+#mix-dot.outside{background:#f8a487}
+#mix strong,#mix-help,#mix-value{white-space:nowrap;position:absolute;left:0;translate:-50% 0;background:#20271dec;padding:4px 8px}
+#mix strong{bottom:59px}
+#mix-value{top:58px;color:#edf2ce}
+#mix-help{top:93px;font-size:13px}
+#touch-pour{position:absolute;bottom:74px;right:17px;pointer-events:auto;touch-action:none}
+#touch-back{position:absolute;bottom:14px;right:117px;pointer-events:auto}
+@media(max-width:580px){#mix-help{white-space:normal;width:240px}#audio{top:10px;right:76px}#objective{max-width:55vw}}
 #aim{position:absolute;left:50%;top:50%;translate:-50% -50%;width:6px;height:6px;border-radius:50%;background:#fdf7dc;box-shadow:0 0 2px 1px #182311}
 #aim.active{width:11px;height:11px;background:#e0edab;border:2px solid #36512a}
 #prompt{position:absolute;top:55%;left:50%;translate:-50%;padding:6px 10px;display:flex;gap:9px;align-items:center;white-space:nowrap}
@@ -53,11 +66,15 @@ kbd{font:700 14px "Segoe UI",sans-serif;background:#d7e3b3;color:#263220;padding
   <div id="prompt" role="status" hidden><kbd>E</kbd><span></span></div>
   <div id="notice" aria-live="polite"></div>
   <div id="held" aria-live="polite"></div>
-  <div id="guide">WASD to walk · Mouse or arrow keys to look · E to interact · Esc to pause</div>
+  <div id="mix" hidden><strong id="mix-label"></strong><div id="mix-ring"><i id="mix-dot"></i></div><b id="mix-value"></b><small id="mix-help"></small></div>
+  <div id="guide">WASD to walk · Mouse to look · E to interact · R to put back</div>
+  <button id="audio" class="plain" type="button" aria-pressed="true">Sound on</button>
   <button id="pause" class="plain" type="button">Pause</button>
 </div>
 <div id="touch" hidden>
   <div id="pad" aria-label="Movement joystick"><i></i></div>
+  <button id="touch-pour" type="button" hidden>Hold to pour</button>
+  <button id="touch-back" type="button">Put back</button>
   <button id="touch-use" type="button">Interact</button>
 </div>
 <section id="overlay" aria-labelledby="title">
@@ -70,7 +87,7 @@ kbd{font:700 14px "Segoe UI",sans-serif;background:#d7e3b3;color:#263220;padding
 </section>
 <section id="verdict" hidden aria-labelledby="verdict-title">
   <div class="sheet">
-    <h2 id="verdict-title">Her verdict</h2>
+    <h2 id="verdict-title">Daisy’s verdict</h2>
     <strong id="score"></strong>
     <p id="judgment"></p>
     <div class="row"><button id="explore" type="button">Keep exploring</button><button id="restart" class="plain" type="button">Play again</button></div>
@@ -247,7 +264,6 @@ window.buildHome = function (scene) {
   box(0,0,-.19,1.17,.66,.045,cabinet,cupboard);
   for(const s of [-1,1])box(s*.583,0,0,.055,.66,.43,cabinet,cupboard);
   for(const y of [-.31,.02,.32])box(0,y,0,1.16,.049,.43,inside,cupboard);
-  pottery(2.29,1.64,-4.62,.68);cylinder(2.63,1.73,-4.62,.058,.068,.18,mint);
   const cupboardDoor=frontDoor("cupboard",2.49,1.93,-4.44,1.16,.64);
   const fridge=group(5.28,0,-4.50);
   box(0,1.12,-.30,.98,2.23,.11,cabinet,fridge);
@@ -259,6 +275,14 @@ window.buildHome = function (scene) {
   const carton=group(5.38,1.43,-4.34);
   box(0,.113,0,.116,.225,.105,cream,carton);box(0,.079,.056,.107,.079,.01,mint,carton);
   cylinder(0,.239,0,.03,.03,.028,mint,carton);
+  const fruit=material("#de924b"), greens=material("#759b54"), jam=material("#a35862");
+  for(let i=0;i<4;i++)oval(5.01+i*.09,1.116,-4.38,.045,.046,.045,fruit);
+  box(5.02,1.46,-4.37,.22,.07,.15,pink);
+  for(let i=0;i<6;i++)oval(4.94+i*.03,1.505,-4.37,.02,.027,.026,cream);
+  for(const [x,y,color,h] of [[5.07,1.81,jam,.12],[5.27,1.81,greens,.19],[5.57,1.10,mint,.15],[5.57,1.81,fruit,.15]]){
+    cylinder(x,y+h/2,-4.39,.047,.044,h,color);
+    cylinder(x,y+h+.013,-4.39,.049,.049,.026,cream);
+  }
   const iceTray=group(5.20,.76,-4.33);
   box(0,.015,0,.26,.029,.16,pink,iceTray);
   for(let i=0;i<6;i++)oval((i%3-1)*.075,.043,(Math.floor(i/3)-.5)*.075,.034,.026,.031,clear,iceTray);
@@ -271,7 +295,7 @@ window.buildHome = function (scene) {
     const g=group(x,y,z,parent);
     const vessel=at(new T.LatheGeometry([[0,.014],[.052,.014],[.061,.029],[.075,.237],[.072,.239],[.069,.034],[0,.025]].map(([r,h])=>new T.Vector2(r,h)),32),0,0,0,clear,g);
     const milkMesh=cylinder(0,.055,0,.063,.053,.080,milk,g);
-    const greenMesh=cylinder(0,.137,0,.067,.063,.072,matcha,g);
+    const greenMesh=cylinder(0,.137,0,.067,.063,.072,matcha.clone(),g);
     milkMesh.visible=false;greenMesh.visible=false;
     const cubes=[];
     for(let i=0;i<6;i++){const m=box(Math.sin(i*8)*.032,.04+i*.028,Math.cos(i*8)*.03,.043,.044,.043,clear,g);m.rotation.set(i*.39,i*.88,i*.6);m.visible=false;cubes.push(m);}
@@ -300,10 +324,18 @@ window.buildHome = function (scene) {
     box(0,-.018,i*.013,span,.0015,.0015,metal,sieve);
   }
   box(-.124,0,0,.106,.014,.021,metal,sieve);
-  const tin=group(2.00,1,-.48);cylinder(0,.068,0,.059,.059,.135,mint,tin);cylinder(0,.138,0,.063,.063,.013,metal,tin);
-  const sweet=group(3.14,1,-.49);
+  const tin=group(2.02,1,-.42);
+  const tinWall=at(new T.LatheGeometry([[.014,.009],[.059,.014],[.059,.132],[.054,.132],[.054,.020],[0,.020]].map(([r,h])=>new T.Vector2(r,h)),32),0,0,0,mint,tin);
+  tinWall.material.side=T.DoubleSide;
+  cylinder(0,.088,0,.051,.051,.018,matcha,tin);
+  const lid=cylinder(0,.138,0,.063,.063,.015,metal,tin);
+  const scoop=group(1.96,1.025,-1.20);
+  box(.055,0,0,.128,.019,.021,honey,scoop);
+  oval(-.020,.007,0,.038,.010,.025,honey,scoop);
+  const scoopPowder=oval(-.022,.015,0,.029,.012,.022,matcha,scoop);scoopPowder.visible=false;
+  const sweet=group(3.16,1,-.46), vanilla=group(3.42,1,-.43);
   cylinder(0,.09,0,.046,.051,.17,honey,sweet);cylinder(0,.177,0,.028,.033,.03,dark,sweet);
-  cylinder(.15,.102,0,.031,.04,.2,plum,sweet);cylinder(.15,.207,0,.024,.024,.021,cream,sweet);
+  cylinder(0,.102,0,.031,.04,.2,plum,vanilla);cylinder(0,.207,0,.024,.024,.021,cream,vanilla);
   const soak=glassAt(2.87,1,-1.18);soak.milkMesh.material=water;
   const glass=glassAt(work.glass.x,work.glass.y,work.glass.z);
   const strawRest=cylinder(3.82,1.025,-.55,.009,.009,.25,clear);strawRest.rotation.z=Math.PI/2;
@@ -352,7 +384,18 @@ window.buildHome = function (scene) {
   cylinder(0,.045,0,.053,.043,.095,cream,mug);
   const mugHandle=at(new T.TorusGeometry(.028,.007,8,12),.059,.047,0,cream,mug);mugHandle.rotation.y=.2;
   mug.visible=false;
-  const judge=person(8.68,.44,4.14,plum,true);judge.g.rotation.y=Math.PI;
+  const judge=person(8.68,.44,4.14,material("#b8758d"),true);judge.g.rotation.y=Math.PI;
+  const auburn=material("#6e422e"), blush=material("#d98984"), gold=material("#e4ad57");
+  oval(0,1.145,-.008,.158,.100,.129,auburn,judge.g);
+  for(const side of [-1,1]){
+    oval(side*.127,1.035,-.039,.073,.154,.093,auburn,judge.g).rotation.z=side*.18;
+    oval(side*.087,1.026,.108,.025,.011,.013,blush,judge.g);
+    oval(side*.048,1.060,.130,.015,.017,.008,dark,judge.g);
+    oval(side*.043,1.066,.137,.004,.004,.003,cream,judge.g);
+  }
+  const smile=at(new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(-.025,1.009,.127),new T.Vector3(0,1.000,.133),new T.Vector3(.025,1.009,.127)]),9,.0035,5,false),0,0,0,material("#824344"),judge.g);
+  for(let i=0;i<5;i++)oval(.106+Math.cos(i*1.257)*.024,1.134+Math.sin(i*1.257)*.024,.092,.015,.015,.008,cream,judge.g);
+  oval(.106,1.134,.103,.012,.012,.008,gold,judge.g);
   items.hands={glassAt,pottery,bamboo,box,oval,matcha,cream,mint,skin,clear,pink};
   interaction("bed","Sit on the bed",-6.5,.58,-3.48,1.8,.64,2.1);
   interaction("kettle","Kettle",1.29,1.25,-4.40,.53,.51,.50);
@@ -360,15 +403,427 @@ window.buildHome = function (scene) {
   interaction("cupboard","Matcha cupboard",2.49,1.94,-4.41,1.20,.66,.32);
   interaction("fridge","Fridge",5.28,1.64,-4.04,.97,1.01,.40);
   interaction("freezer","Freezer",5.28,.55,-4.04,.97,.98,.40);
-  const handleReach = .48;
-  interaction("sieve","Sieve and matcha tin",2.02,1.105,-.60,.39,.29,1.06);
-  interaction("bowl","Pink bowl",2.52,1.14,-.85,.41,.33,1.19);
-  interaction("soak","Soaking glass",2.93,1.15,-1.04,.37,.38,.82);
-  interaction("sweet","Honey and vanilla",3.15,1.16,-.52,.33,.37,.37);
-  interaction("glass","Serving glass",3.64,1.16,-.85,handleReach,.35,1.19);
-  interaction("judge","Your sister-in-law",8.68,1.34,4.01,.64,1.04,.60);
-  interaction("straw","Glass straw",3.98,1.027,-.65,.21,.13,.52);
-  return {solids,targets,doors,items,kettle,steam,leith,mug,coffeeCup,judge,carton,iceTray,cupboardDoor,fridgeDoor,freezerDoor,bowl,liquid,foam,whisk,sieve,tin,sweet,soak,glass,strawRest};
+  interaction("judge","Daisy",8.68,1.34,4.01,.64,1.04,.60);
+  interaction("milk","Milk",5.38,1.55,-4.30,.23,.29,.32);
+  interaction("ice","Ice tray",5.20,.78,-4.32,.34,.23,.29);
+  return {solids,targets,doors,items,interaction,kettle,steam,leith,mug,coffeeCup,judge,carton,iceTray,cupboardDoor,fridgeDoor,freezerDoor,bowl,liquid,foam,whisk,sieve,tin,lid,scoop,scoopPowder,sweet,vanilla,soak,glass,strawRest};
+};
+
+</script>
+<script>
+window.makeMatchaSound=function(){
+  let context, mix, music, effects, timer, flow, next=0, beat=0, on=true, playing=false, lastWhisk=0;
+  const chords=[
+    [48,55,59,64,67,64,62,59],
+    [45,52,57,60,64,60,59,57],
+    [41,48,53,57,60,64,60,57],
+    [43,50,55,59,62,67,62,59]
+  ];
+  const hz=n=>440*2**((n-69)/12);
+  function note(bus,freq,time,length,volume,type="sine",end=freq){
+    const voice=context.createOscillator(), envelope=context.createGain();
+    voice.type=type;voice.frequency.setValueAtTime(freq,time);voice.frequency.exponentialRampToValueAtTime(end,time+length);
+    envelope.gain.setValueAtTime(.0001,time);envelope.gain.exponentialRampToValueAtTime(volume,time+.021);
+    envelope.gain.exponentialRampToValueAtTime(.0001,time+length);
+    voice.connect(envelope).connect(bus);voice.start(time);voice.stop(time+length+.02);
+  }
+  function noise(bus,freq,time,length,volume,loop=false){
+    const buffer=context.createBuffer(1,Math.ceil(context.sampleRate*length),context.sampleRate);
+    const data=buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(loop?1:Math.sin(Math.PI*i/data.length)**.4);
+    const voice=context.createBufferSource(), filter=context.createBiquadFilter(),gain=context.createGain();
+    voice.buffer=buffer;voice.loop=loop;filter.type="bandpass";filter.frequency.value=freq;filter.Q.value=.63;
+    gain.gain.value=volume;voice.connect(filter).connect(gain).connect(bus);voice.start(time);
+    return {voice,gain};
+  }
+  function schedule(){
+    if(!playing||!on)return;
+    if(next<context.currentTime-.2)next=context.currentTime+.04;
+    while(next<context.currentTime+.45){
+      const part=beat%8, chord=chords[Math.floor(beat/8)%chords.length];
+      if(part===0){note(music,hz(chord[0]),next,1.61,.054,"sine");note(music,hz(chord[1]),next+.08,1.42,.039,"sine");}
+      if(part===3||part===7)note(music,hz(chord[1]+12),next,1.05,.025,"sine");
+      if(part!==1&&part!==6){
+        note(music,hz(chord[part]+(part===0?24:12)),next,.75,part===0?.027:.039,"sine");
+        note(music,hz(chord[part]+12),next+.019,.31,.014,"triangle");
+      }
+      beat++;next+=part%2?.37:.31;
+    }
+  }
+  function init(){
+    if(context)return true;
+    const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return false;
+    try{context=new Audio();}catch{return false;}
+    mix=context.createGain();music=context.createGain();effects=context.createGain();
+    mix.gain.value=on?.64:0;music.gain.value=.67;effects.gain.value=.62;
+    music.connect(mix);effects.connect(mix);mix.connect(context.destination);
+    timer=setInterval(schedule,180);return true;
+  }
+  function play(flag){
+    playing=flag;
+    if(flag&&on&&init()){
+      context.resume().catch(()=>{});music.gain.setTargetAtTime(.67,context.currentTime,.15);schedule();
+    }else if(context){music.gain.setTargetAtTime(.0001,context.currentTime,.12);effect("flow",false);}
+  }
+  function toggle(){
+    on=!on;
+    if(context)mix.gain.setTargetAtTime(on?.64:0,context.currentTime,.045);
+    if(on&&playing)play(true);
+    return on;
+  }
+  function effect(kind,active){
+    if(kind==="flow"&&active===false&&flow){flow.gain.gain.setTargetAtTime(0,context.currentTime,.035);return;}
+    if(!context||!on||!playing)return;
+    const t=context.currentTime;
+    if(kind==="flow"){
+      if(!flow)flow=noise(effects,1150,t,1,0,true);
+      flow.gain.gain.setTargetAtTime(active?.094:0,t,.035);return;
+    }
+    if(kind==="whisk"){
+      if(t-lastWhisk<.065)return;lastWhisk=t;
+    }
+    const specs={door:[150,.21,.19],pick:[685,.08,.075],set:[570,.11,.10],scoop:[1320,.13,.12],sift:[2350,.23,.08],whisk:[800,.10,.083],ice:[2500,.16,.11],switch:[1620,.05,.10],spill:[835,.17,.15],pour:[1080,.18,.08],sip:[580,.23,.095],foot:[142,.09,.07],glass:[2250,.095,.10]};
+    if(specs[kind]){const [freq,length,volume]=specs[kind];noise(effects,freq,t,length,volume);}
+    if(kind==="ice"||kind==="glass")note(effects,kind==="ice"?1369:1760,t,.24,.040,"sine");
+    if(kind==="door"||kind==="set")note(effects,kind==="door"?102:320,t,.13,.035,"triangle",kind==="door"?62:210);
+    if(kind==="serve")for(const [i,n] of [72,76,79,84].entries())note(effects,hz(n),t+i*.087,.53,.071,"sine");
+  }
+  return {play,toggle,effect};
+};
+
+</script>
+<script>
+window.makeRitual = function ({home, camera, hand, scene, stream, say, sound, finish, $, occupied}) {
+  const T=THREE, limit=T.MathUtils.clamp, vector=(...args)=>new T.Vector3(...args);
+  const specs=[
+    ["bowl","pink bowl",home.bowl,2.11,1.644,.36,.22],
+    ["whisk","bamboo whisk",home.whisk,2.47,1.68,.26,.18],
+    ["sieve","sieve",home.sieve,2.82,1.69,.24,.15],
+    ["tin","matcha tin",home.tin,2.03,1.974,.17,.18],
+    ["scoop","bamboo scoop",home.scoop,2.26,2.007,.26,.13],
+    ["soak","soaking glass",home.soak.g,2.48,1.974,.19,.26],
+    ["glass","serving glass",home.glass.g,2.71,1.974,.19,.26],
+    ["straw","glass straw",home.strawRest,2.95,1.985,.12,.20],
+    ["honey","honey",home.sweet,2.75,1.644,.16,.20],
+    ["vanilla","vanilla syrup",home.vanilla,2.98,1.644,.15,.23],
+  ];
+  // Separate the syrup and sieve on the two shelf rows.
+  specs.find(([id])=>id==="sieve")[3]=2.62;
+  specs.find(([id])=>id==="honey")[3]=2.83;
+  const tools=new Map();
+  for(const [id,name,mesh,x,y,w,h] of specs){
+    const table=mesh.position.clone(), shelf=vector(x,y,-4.65);
+    const hit=(place,pos)=>home.interaction(place+":"+id,name,pos.x,pos.y+h*.42,pos.z,w,h,place==="shelf"?.24:Math.max(.14,w*.80));
+    const size=id==="bowl"?.37:id==="sieve"?.20:w;
+    if(id==="straw")table.set(3.99,1.025,-.58);
+    tools.set(id,{id,name,mesh,table,shelf,rotation:mesh.rotation.clone(),size,place:"shelf",shelfHit:hit("shelf",shelf),tableHit:hit("table",table)});
+  }
+  const spillMark=new T.Mesh(new T.CircleGeometry(.22,32),new T.MeshStandardMaterial({color:"#efe5cc",transparent:true,opacity:.55,depthWrite:false}));
+  spillMark.rotation.x=-Math.PI/2;spillMark.visible=false;scene.add(spillMark);
+  const milkColor=new T.Color("#e7edbd"), matchaColor=new T.Color("#2e651b");
+  const originalPourPosition=hand.position.clone();
+  const labels={kettle:"kettle",milk:"milk carton",ice:"ice"};
+  let state, held="", inHand=null, mode=null, pressing=false, spilledSoundAt=0;
+  const onTable=(id)=>tools.get(id).place==="table";
+  function place(tool,where){
+    tool.place=where;tool.mesh.visible=where!=="hand"&&where!=="used";
+    if(where==="table")tool.setOut=true;
+    if(!tool.mesh.visible)return;
+    tool.mesh.position.copy(tool[where]);
+    tool.mesh.rotation.copy(tool.rotation);
+    if(where==="shelf"&&tool.id==="straw")tool.mesh.rotation.set(.25,0,.53);
+  }
+  function updateGlass(glass){
+    const volume=Math.min(800,state.milk+state.matchaWater);
+    const fill=Math.min(.187,volume*.187/800);
+    const concentration=state.servedScoops*250/(Math.max(1,state.milk)*3);
+    glass.milkMesh.visible=!state.combined&&state.milk>0;
+    glass.greenMesh.visible=state.combined&&volume>0;
+    const liquid=state.combined?glass.greenMesh:glass.milkMesh;
+    liquid.scale.y=fill/(state.combined?.072:.08);liquid.position.y=.028+fill/2;
+    glass.greenMesh.material.color.copy(milkColor).lerp(matchaColor,concentration/(concentration+.56));
+    glass.cubes.forEach((cube,i)=>{cube.visible=i<state.ice;});
+    glass.straw.visible=state.straw;
+  }
+  function refresh(){
+    const bowl=onTable("bowl");
+    home.liquid.visible=bowl&&state.scoops>0&&!state.combined;
+    home.liquid.scale.set(.42+Math.min(.55,state.water/165+state.scoops*.035),.75+Math.min(1,state.water/60),.42+Math.min(.55,state.water/165+state.scoops*.035));
+    home.foam.forEach((bit,i)=>{bit.visible=home.liquid.visible&&state.water>0&&i<state.strokes*.8;});
+    home.scoopPowder.visible=state.loaded;
+    if(held==="scoop"&&inHand)inHand.children.at(-1).visible=state.loaded;
+    home.soak.milkMesh.visible=state.soakWater>0;
+    home.soak.milkMesh.scale.y=Math.min(1.9,state.soakWater/34);
+    home.soak.milkMesh.position.y=.025+.034*home.soak.milkMesh.scale.y;
+    updateGlass(home.glass);
+    if(held==="glass"&&inHand)updateGlass({milkMesh:inHand.children[1],greenMesh:inHand.children[2],cubes:inHand.children.slice(3,9),straw:inHand.children[9]});
+  }
+  function hold(id){
+    if(inHand){hand.remove(inHand);inHand=null;}
+    held=id;hand.visible=Boolean(id);
+    if(id){
+      const model=tools.get(id)?.mesh||({kettle:home.kettle,milk:home.carton,ice:home.iceTray})[id];
+      inHand=model.clone(true);
+      inHand.visible=true;inHand.position.set(0,-.056,-.054);
+      inHand.scale.multiplyScalar(id==="kettle"?.48:id==="bowl"?.62:.78);
+      if(id==="whisk")inHand.rotation.set(-.21,0,-.34);
+      hand.add(inHand);
+    }
+    $("held").textContent=id?"Holding "+(tools.get(id)?.name||labels[id])+" · R to put back":"";
+    refresh();
+  }
+  function reset(){
+    state={scoops:0,servedScoops:0,water:0,matchaWater:0,soakWater:0,soakUntil:0,soaked:false,milk:0,strokes:0,spilled:0,kettleAt:0,hotLeft:900,milkLeft:1000,loaded:false,tinOpen:false,combined:false,ice:0,straw:false,served:false,tasted:false,iceCount:4,sweeteners:new Set()};
+    mode=null;pressing=false;home.kettle.visible=home.carton.visible=home.iceTray.visible=true;spillMark.visible=false;stream.visible=false;
+    for(const tool of tools.values()){tool.setOut=false;place(tool,"shelf");}
+    home.lid.position.set(0,.138,0);home.lid.rotation.set(0,0,0);
+    hold("");updateObjective();
+  }
+  function stow(where="shelf"){
+    if(!held||mode)return;
+    const tool=tools.get(held);
+    if(tool)place(tool,where);
+    else if(held==="kettle")home.kettle.visible=true;
+    else if(held==="milk")home.carton.visible=true;
+    else if(held==="ice")home.iceTray.visible=true;
+    sound("set");hold("");updateObjective();
+  }
+  function putBack(){
+    if(mode||!held)return false;
+    const tool=tools.get(held);
+    const distanceTable=camera.position.distanceTo(tool?.table||home.bowl.position);
+    const distanceShelf=camera.position.distanceTo(tool?.shelf||vector(2.49,1.9,-4.5));
+    const nearTable=distanceTable<2.5;
+    const nearCupboard=distanceShelf<2.5;
+    if(tool&&!(nearCupboard&&home.cupboardDoor.open)&&!nearTable){say("Go to the kitchen table or open cupboard to put this down.");return false;}
+    if(held==="milk"&&(!home.fridgeDoor.open||camera.position.distanceTo(home.carton.position)>2.5)){say("Open the fridge to return the milk.");return false;}
+    if(held==="ice"&&(!home.freezerDoor.open||camera.position.distanceTo(home.iceTray.position)>2.5)){say("Open the freezer to return the ice.");return false;}
+    if(held==="kettle"&&camera.position.distanceTo(home.kettle.position)>2.5){say("Return the kettle to its base by the wall.");return false;}
+    if(tool)stow(nearCupboard&&home.cupboardDoor.open&&(!nearTable||distanceShelf<distanceTable)?"shelf":"table");else stow();
+    return true;
+  }
+  function take(tool){place(tool,"hand");hold(tool.id);sound("pick");updateObjective();}
+  function updateObjective(){
+    const steps=[
+      [state.served,"Daisy’s had her sip. You can keep exploring."],
+      [state.tasted,"Bring your iced matcha to Daisy on the corner couch."],
+      [state.combined&&!state.straw,"Pick up the straw, add it to your glass, then taste the matcha."],
+      [state.combined,"Taste your iced matcha at the serving glass."],
+      [state.milk>0&&state.water>0,"Pick up the pink bowl and pour into the serving glass. You can still adjust the milk."],
+      [state.water>0&&state.scoops>0,"Whisk with a mixing motion. Add sweetener if you like, then get ice and milk."],
+      [state.soakUntil&&!state.soaked,"Let the whisk soak for ten seconds, then take it out."],
+      [state.scoops>0,"Pour hot water into the pink bowl. Use small pours for the paste, then add more water when you like."],
+      [onTable("tin")&&onTable("scoop")&&onTable("bowl")&&onTable("sieve"),"Open the matcha tin, pick up the scoop, then scoop and sift into the bowl."],
+      [state.kettleAt>0,"Take your tools from the cupboard one at a time. Pour hot water into the small glass to soak the whisk."],
+    ];
+    $("task").textContent=(steps.find(([ready])=>ready)||[true,"Switch on the mint kettle. You can set out tools while it heats."])[1];
+  }
+  function start(kind,receiver) {
+    const anchor=receiver.position.clone();
+    const from=camera.position.clone().sub(anchor);from.y=0;from.normalize();
+    const right=vector(from.z,0,-from.x);
+    mode={kind,receiver,right,forward:from,x:0,y:0,travel:0,turn:0,direction:null,added:0,spilled:0,elapsed:0};
+    pressing=false;
+    $("mix").hidden=false;
+    $("mix").classList.toggle("pour-panel",kind!=="whisk");
+    $("mix-label").textContent=kind==="whisk"?"Whisking":"Pouring "+(kind==="water"||kind==="soak"?"hot water":kind);
+    $("mix-help").textContent=kind==="whisk"?"Move side to side or in circles. E to stop.":"Aim inside the ring. Hold mouse or Space to pour. E to stop.";
+    if(touchInput())$("mix-help").textContent=kind==="whisk"?"Drag side to side or in circles. Tap Done to stop.":"Drag to aim. Hold Pour, then tap Done.";
+    $("touch-pour").hidden=kind==="whisk"||!touchInput();
+    $("touch-use").textContent="Done";
+    if(kind==="whisk"){home.whisk.visible=true;hand.visible=false;}
+    updateMix();
+  }
+  function touchInput(){return matchMedia("(pointer:coarse)").matches;}
+  function end(){
+    if(!mode)return false;
+    const {kind,added,spilled}=mode;
+    if(kind==="matcha"&&added>0){
+      state.matchaWater=added;state.servedScoops=state.scoops*added/state.water;state.combined=true;
+    }
+    if(kind==="matcha"&&added===0&&spilled>0){
+      state.scoops*=Math.max(0,1-spilled/state.water);state.water=Math.max(0,state.water-spilled);
+    }
+    mode=null;pressing=false;stream.visible=false;hand.rotation.z=0;
+    if(kind==="whisk"){place(tools.get("whisk"),"hand");hand.visible=true;}
+    sound("flow",false);
+    hand.position.copy(originalPourPosition);
+    $("mix").hidden=true;
+    $("touch-pour").hidden=true;$("touch-use").textContent="Interact";
+    if(spilled>=1)say("You spilled "+Math.round(spilled)+" ml. The rest stayed in the "+(kind==="milk"||kind==="matcha"?"glass.":"bowl or soaking glass."));
+    if(kind==="matcha"&&added>0)stow("table");
+    sound("set");refresh();updateObjective();return true;
+  }
+  function toggle(door){door.open=!door.open;sound("door");}
+  function prompt(id){
+    if(mode)return "";
+    if(id==="cupboard")return held&&tools.has(held)&&home.cupboardDoor.open?"Return "+tools.get(held).name:home.cupboardDoor.open?"Close matcha cupboard":"Open matcha cupboard";
+    if(id==="fridge")return held==="milk"&&home.fridgeDoor.open?"Return the milk":home.fridgeDoor.open?"Close fridge":"Open fridge";
+    if(id==="freezer")return home.freezerDoor.open?"Close freezer":"Open freezer";
+    if(id==="leith")return "Talk to Leith";
+    if(id==="bed")return "Look at the bed";
+    if(id==="judge")return state.tasted&&held==="glass"?"Offer Daisy a sip":"Talk to Daisy";
+    if(id==="milk")return home.fridgeDoor.open&&(!held||held==="milk")?"Take the milk":"";
+    if(id==="ice")return home.freezerDoor.open&&!held?"Take "+state.iceCount+" cubes"+(touchInput()?" · tap to change":" · Q to change"):"";
+    if(id==="kettle")return occupied()?"Kettle in use":held==="kettle"?"Return kettle to base":!state.kettleAt?"Switch on kettle":state.kettleAt>performance.now()?"Kettle heating":!held?"Pick up the hot kettle":"";
+    const [where,key]=id.split(":"),tool=tools.get(key);
+    if(!tool)return "";
+    if(where==="shelf")return home.cupboardDoor.open&&tool.place==="shelf"&&!held?"Take "+tool.name:"";
+    if(tool.place!=="table")return held===key?"Set down "+tool.name:"";
+    if(tools.has(held)&&!tools.get(held).setOut)return "";
+    if(!held){
+      if(key==="tin"){
+        const alternate=touchInput()?" · tap Put back to pick up":" · R to pick up";
+        return (state.tinOpen?"Close matcha tin":"Open matcha tin")+alternate;
+      }
+      if(key==="glass"&&state.combined)return "Taste and pick up the matcha";
+      return "Pick up "+tool.name;
+    }
+    if(key==="tin"&&held==="scoop")return state.loaded?"Scoop already loaded":state.tinOpen&&!state.combined?"Scoop matcha powder":"Open the tin first";
+    if((key==="bowl"||key==="sieve")&&held==="scoop"&&state.loaded&&onTable("bowl")&&onTable("sieve"))return "Sift this scoop into the bowl";
+    if(key==="soak"&&held==="whisk"&&state.soakWater>=1&&!state.soaked)return state.soakUntil?(performance.now()>=state.soakUntil?"Take out whisk":"Whisk is soaking…"):"Dip the whisk in hot water";
+    if(key==="soak"&&held==="kettle")return "Aim kettle at soaking glass";
+    if(key==="bowl"&&held==="kettle"&&state.scoops>0&&!state.combined)return "Aim kettle at the pink bowl";
+    if(key==="bowl"&&held==="whisk"&&state.water>0&&!state.combined)return "Start whisking";
+    if(key==="bowl"&&(held==="honey"||held==="vanilla")&&state.water>0&&!state.combined)return "Add "+tools.get(held).name;
+    if(key==="glass"&&held==="ice")return "Add ice to the glass";
+    if(key==="glass"&&held==="milk")return "Aim milk carton at the glass";
+    if(key==="glass"&&held==="bowl"&&state.scoops>0&&state.water>0&&state.milk>0&&!state.combined)return "Aim bowl at the serving glass";
+    if(key==="glass"&&held==="straw"&&state.combined)return "Add the glass straw";
+    return "";
+  }
+  function use(id){
+    if(end())return;
+    switch(id){
+      case "cupboard":if(held&&tools.has(held)&&home.cupboardDoor.open)stow();else toggle(home.cupboardDoor);return;
+      case "fridge":if(held==="milk"&&home.fridgeDoor.open)stow();else toggle(home.fridgeDoor);return;
+      case "freezer":toggle(home.freezerDoor);return;
+      case "milk":if(!held){home.carton.visible=false;hold("milk");sound("pick");}return;
+      case "ice":if(!held){home.iceTray.visible=false;hold("ice");sound("ice");}return;
+      case "bed":say("Your bed. The kitchen is down the hall.");return;
+      case "leith":say("Leith: Give me a moment. I’m finishing my coffee.");return;
+      case "judge":
+        if(state.tasted&&held==="glass"&&!state.served){state.served=true;place(tools.get("glass"),"used");hold("");sound("serve");updateObjective();finish(state);}
+        else say("Daisy: “Bring me a sip when it’s ready!”");return;
+      case "kettle":
+        if(occupied())say("Leith is using the kettle.");
+        else if(held==="kettle")stow();
+        else if(!state.kettleAt){state.kettleAt=performance.now()+3700;sound("switch");say("The kettle is heating.");updateObjective();}
+        else if(performance.now()<state.kettleAt)say("The kettle is still heating.");
+        else if(!held){home.kettle.visible=false;hold("kettle");sound("pick");}
+        return;
+    }
+    const [where,key]=id.split(":"),tool=tools.get(key);
+    if(!tool)return;
+    if(where==="shelf"){if(!held&&home.cupboardDoor.open)take(tool);return;}
+    if(held===key){stow("table");return;}
+    if(tools.has(held)&&!tools.get(held).setOut)return;
+    if(!held){
+      if(key==="tin"){
+        state.tinOpen=!state.tinOpen;home.lid.position.set(state.tinOpen?.132:0,state.tinOpen?.009:.138,0);sound("door");
+      }else{
+        if(key==="glass"&&state.combined){state.tasted=true;sound("sip");say("You tasted the matcha. Bring it to Daisy.");}
+        take(tool);
+      }
+      return;
+    }
+    if(key==="tin"&&held==="scoop"&&state.tinOpen&&!state.combined&&!state.loaded){state.loaded=true;sound("scoop");say("One scoop loaded.");}
+    if((key==="bowl"||key==="sieve")&&held==="scoop"&&state.loaded&&onTable("bowl")&&onTable("sieve")&&!state.combined){
+      state.loaded=false;state.scoops++;sound("sift");say(state.scoops+" scoop"+(state.scoops===1?"":"s")+" in the bowl.");
+    }
+    if(key==="soak"&&held==="whisk"&&state.soakWater>=1&&!state.soaked){
+      if(!state.soakUntil){state.soakUntil=performance.now()+10000;sound("pour");say("Whisk soaking for ten seconds.");}
+      else if(performance.now()>=state.soakUntil){state.soaked=true;sound("set");say("The whisk is ready.");}
+      else say("Soaking for "+Math.ceil((state.soakUntil-performance.now())/1000)+" more seconds.");
+    }
+    if(key==="soak"&&held==="kettle")start("soak",home.soak.g);
+    if(key==="bowl"&&held==="kettle"&&state.scoops>0&&!state.combined)start("water",home.bowl);
+    if(key==="bowl"&&held==="whisk"&&state.water>0&&!state.combined)start("whisk",home.bowl);
+    if(key==="bowl"&&(held==="honey"||held==="vanilla")&&state.water>0&&!state.combined){state.sweeteners.add(held);sound("pour");say(tools.get(held).name+" added.");}
+    if(key==="glass"&&held==="ice"){state.ice=state.iceCount;home.iceTray.visible=true;hold("");sound("ice");}
+    if(key==="glass"&&held==="milk")start("milk",home.glass.g);
+    if(key==="glass"&&held==="bowl"&&state.scoops>0&&state.water>0&&state.milk>0&&!state.combined)start("matcha",home.glass.g);
+    if(key==="glass"&&held==="straw"&&state.combined){state.straw=true;place(tools.get("straw"),"used");hold("");sound("glass");}
+    refresh();updateObjective();
+  }
+  function secondary(id){
+    if(mode)return;
+    if(held){putBack();return;}
+    if(id==="table:tin"&&onTable("tin"))take(tools.get("tin"));
+  }
+  function cycle(id){
+    if(id==="ice"&&home.freezerDoor.open&&!held){state.iceCount=(state.iceCount+1)%7;say(state.iceCount+" ice cubes.",1);}
+  }
+  function updateMix(){
+    if(!mode)return;
+    const {kind,x,y}=mode;
+    $("mix-dot").style.transform="translate("+x*38+"px,"+y*38+"px)";
+    $("mix-dot").classList.toggle("outside",Math.hypot(x,y)>1);
+    $("mix-value").textContent=kind==="whisk"?state.strokes+" strokes":Math.round(kind==="milk"?state.milk:kind==="soak"?state.soakWater:kind==="water"?state.water:mode.added)+" ml in · "+Math.round(state.spilled)+" ml spilled";
+  }
+  function move(x,y){
+    if(!mode)return false;
+    if(mode.kind==="whisk"&&Math.hypot(x,y)<1)return true;
+    const oldX=mode.x,oldY=mode.y;
+    const bound=mode.kind==="whisk"?1:2;
+    mode.x=limit(mode.x+x*.016,-bound,bound);mode.y=limit(mode.y+y*.016,-bound,bound);
+    if(mode.kind==="whisk"){
+      const distance=Math.hypot(mode.x-oldX,mode.y-oldY);
+      if(distance>.014){
+        const direction=Math.atan2(y,x);
+        if(mode.direction!==null)mode.turn+=Math.abs(Math.atan2(Math.sin(direction-mode.direction),Math.cos(direction-mode.direction)));
+        mode.direction=direction;
+        mode.travel+=distance;
+        if(mode.travel>=.57&&mode.turn>=1.55){
+          state.strokes++;mode.travel=mode.turn=0;sound("whisk");refresh();
+        }
+      }
+    }
+    updateMix();return true;
+  }
+  function tick(now,dt,keyboardPour){
+    if(!mode)return;
+    const m=mode, {kind,receiver}=m;
+    if(kind==="whisk"){
+      home.whisk.position.copy(receiver.position).addScaledVector(m.right,m.x*.10).addScaledVector(m.forward,m.y*.10);
+      home.whisk.position.y+=.132;
+      home.whisk.rotation.set(m.y*.24,0,m.x*.36);return;
+    }
+    const pouring=pressing||keyboardPour;
+    const amountKey=kind==="milk"?"milk":kind==="soak"?"soakWater":kind==="water"?"water":null;
+    const sourceKey=kind==="milk"?"milkLeft":kind==="matcha"?null:"hotLeft";
+    const available=sourceKey?state[sourceKey]:Math.max(0,state.water-m.added-m.spilled);
+    const active=pouring&&available>.01;
+    hand.rotation.z=T.MathUtils.damp(hand.rotation.z,active?-.80:0,13,dt);
+    stream.visible=active;
+    sound("flow",active);
+    if(!active)return;
+    m.elapsed+=dt;
+    m.x=limit(m.x+(.12+Math.sin(m.elapsed*2.2)*.37)*dt,-2,2);
+    m.y=limit(m.y+(.28+Math.cos(m.elapsed*1.5)*.19)*dt,-2,2);
+    const delta=Math.min(available,dt*(kind==="milk"?110:kind==="matcha"?82:44));
+    const cap=kind==="milk"?800-state.matchaWater-state.milk:kind==="soak"?95-state.soakWater:kind==="water"?160-state.water:800-state.milk-m.added;
+    const captured=Math.hypot(m.x,m.y)<=1?Math.min(delta,Math.max(0,cap)):0;
+    const lost=delta-captured;
+    if(sourceKey)state[sourceKey]-=delta;
+    if(amountKey)state[amountKey]+=captured;
+    m.added+=captured;m.spilled+=lost;state.spilled+=lost;
+    const drift=kind==="water"?.146:.076;
+    stream.position.copy(receiver.position).addScaledVector(m.right,m.x*drift).addScaledVector(m.forward,m.y*drift);
+    stream.position.y+=.239;stream.scale.set(1,1,1);stream.material.opacity=.85;
+    stream.material.color.set(kind==="milk"?"#f5edcf":kind==="matcha"?"#739c49":"#cce3d9");
+    if(lost>.001){
+      spillMark.visible=true;spillMark.material.color.copy(stream.material.color);
+      spillMark.position.set(stream.position.x,1.004,stream.position.z);
+      spillMark.scale.setScalar(Math.min(1.3,.15+state.spilled*.015));
+      if(now>spilledSoundAt){sound("spill");spilledSoundAt=now+260;}
+    }
+    refresh();updateMix();
+  }
+  const priority=(id)=>id.startsWith("shelf:")||id==="milk"||id==="ice"?1:0;
+  return {reset,use,cycle,prompt,secondary,priority,move,tick,end,updateObjective,
+    active:()=>Boolean(mode), kettleAt:()=>state?.kettleAt||0, kettleOut:()=>held==="kettle",
+    setPressing(on){pressing=on;if(!on)sound("flow",false);}, state:()=>state};
 };
 
 </script>
@@ -402,13 +857,6 @@ window.buildHome = function (scene) {
   const sleeve=new THREE.MeshStandardMaterial({color:"#666d59",roughness:.92});
   handheld.oval(.09,-.114,.057,.052,.066,.125,sleeve,hand).rotation.set(.1,.20,-.42);
   handheld.oval(.035,-.078,.003,.044,.053,.070,handheld.skin,hand).rotation.z=.38;
-  const carriedGlass=handheld.glassAt(0,-.055,-.028,hand);
-  const carriedBowl=handheld.pottery(0,-.081,-.08,.75,handheld.pink,hand);
-  const carriedWhisk=handheld.bamboo(0,-.04,-.065,hand);
-  carriedWhisk.rotation.z=-.5;
-  const carriedCarton=new THREE.Group();hand.add(carriedCarton);
-  handheld.box(0,.014,-.043,.086,.156,.078,handheld.cream,carriedCarton);
-  handheld.box(0,-.007,-.085,.073,.052,.009,handheld.mint,carriedCarton);
   const stream=new THREE.Mesh(new THREE.CylinderGeometry(.006,.013,.34,10),new THREE.MeshStandardMaterial({color:"#f0dfaa",transparent:true,opacity:.85}));
   stream.visible=false;scene.add(stream);
   const source=new THREE.Raycaster(), aimPoint=new THREE.Vector2(), clock=new THREE.Clock();
@@ -416,74 +864,22 @@ window.buildHome = function (scene) {
   const touch=matchMedia("(pointer:coarse)").matches;
   const feet={x:-6.40,z:-4.17};
   let motion=0, yaw=-2.17, pitch=-.195, target=null, phase="bed", occupied=false, leithPlan;
-  let recipe, stage=0, statusEnd=0, animation=null, kettleAt=0, soakAt=0, holding="", drag=null, joyst=null, joyX=0, joyY=0;
-  const dose={paste:[3,5,8,12],water:[25,35,45,60,80],milk:[100,150,200,250,300],ice:[0,2,3,4,5,6],sweet:["Nothing","Honey","Vanilla","Honey + vanilla"]};
-  const choices={paste:1,water:2,milk:2,ice:3,sweet:0};
-  const checklist=[
-    "Find the mint kettle and switch it on.",
-    "Open the matcha cupboard and take the kit to the island.",
-    "Use the small glass on the island to soak the whisk.",
-    "Use the sieve to sift matcha into the pink bowl.",
-    "Add hot water to the pink bowl to make a paste.",
-    "Whisk the paste in the pink bowl.",
-    "Add more hot water to the pink bowl.",
-    "Whisk the matcha until it foams.",
-    "Add honey or vanilla at the island, or leave it plain.",
-    "Whisk in the sweetener.",
-    "Select the serving glass on the island.",
-    "Open the bottom freezer door and take ice from the tray.",
-    "Add the ice to your serving glass.",
-    "Open the top fridge door and pick up the milk.",
-    "Pour milk into the serving glass.",
-    "Pick up the pink bowl.",
-    "Pour the matcha into the serving glass.",
-    "Pick up the clear straw beside the serving glass.",
-    "Taste your drink and pick it up.",
-    "Bring your sister-in-law a sip at the corner couch.",
-    "Your matcha is served. You can keep exploring.",
-  ];
+  let statusEnd=0, drag=null, joyst=null, joyX=0, joyY=0, nextStep=0;
+  const sound=window.makeMatchaSound();
+  const ritual=window.makeRitual({home,camera,hand,scene,stream,say,sound:sound.effect,finish,$,occupied:()=>occupied});
   function reset() {
-    recipe={scoops:0,paste:5,water:45,ice:4,milk:200,sweet:0,strokes:0};
-    Object.assign(choices,{paste:1,water:2,milk:2,ice:3,sweet:0});
-    stage=0;kettleAt=soakAt=0;holding="";motion=0;animation=null;
-    feet.x=-6.40;feet.z=-4.17;yaw=-2.17;pitch=-.195;
+    feet.x=-6.40;feet.z=-4.17;yaw=-2.17;pitch=-.195;motion=0;nextStep=0;
     leithPlan={here:Math.random()<.5,until:0,done:false};occupied=false;
     home.leith.g.position.set(1.25,0,-3.68);home.leith.g.rotation.y=Math.PI;
     home.leith.g.visible=leithPlan.here;
-    home.coffeeCup.visible=true;home.mug.visible=false;
-    home.carton.visible=home.iceTray.visible=true;
+    home.coffeeCup.visible=true;home.mug.visible=false;home.steam.visible=false;
     for(const door of home.doors){door.open=false;door.angle=0;door.pivot.rotation.y=0;}
-    for(const object of [home.bowl,home.whisk,home.sieve,home.tin,home.sweet,home.glass.g,home.strawRest,home.liquid,home.steam,...home.foam])object.visible=false;
-    updateGlass(home.glass,false,false,false,0);
-    home.soak.milkMesh.visible=false;
-    stream.visible=false;
-    home.whisk.position.set(2.28,1.094,-.85);home.whisk.rotation.z=1.52;
-    showHeld("");
-  }
-  function showHeld(name) {
-    holding=name;
-    hand.visible=Boolean(name);
-    carriedGlass.g.visible=name==="Iced matcha" || name==="Ice";
-    carriedBowl.visible=name==="Bowl of matcha";
-    carriedCarton.visible=name==="Milk";
-    carriedWhisk.visible=name==="Matcha kit";
-    $("held").textContent=name ? "Holding "+name.toLowerCase() : "";
-    updateGlass(carriedGlass,name==="Iced matcha",name==="Iced matcha",name==="Iced matcha",name==="Iced matcha"||name==="Ice"?recipe.ice:0);
-  }
-  function updateGlass(glass, milk, green, straw, ice) {
-    glass.milkMesh.visible=milk;
-    glass.milkMesh.scale.y=recipe?.milk ? recipe.milk/200 : 1;
-    glass.milkMesh.position.y=.019+.036*glass.milkMesh.scale.y;
-    glass.greenMesh.visible=green;
-    glass.greenMesh.position.y=glass.milkMesh.position.y+.035*glass.milkMesh.scale.y+.026;
-    glass.straw.visible=straw;
-    glass.cubes.forEach((cube,i)=>{cube.visible=i<ice;});
+    ritual.reset();
   }
   function say(message,seconds=3) { $("notice").textContent=message;statusEnd=performance.now()+seconds*1000; }
-  function setStage(next) { stage=next;$("task").textContent=checklist[stage]; }
   function begin() {
     feet.x=-5.35;feet.z=-3.06;yaw=-1.63;pitch=-.045;
-    resume();setStage(stage);
+    resume();ritual.updateObjective();
   }
   function lockPointer() {
     if(touch || document.pointerLockElement) return;
@@ -491,149 +887,28 @@ window.buildHome = function (scene) {
   }
   function resume() {
     phase="play";$("overlay").hidden=true;$("verdict").hidden=true;$("hud").hidden=false;$("touch").hidden=!touch;
-    lockPointer();
+    sound.play(true);lockPointer();
   }
   function pause() {
     if(phase!=="play")return;
-    phase="paused";keys.clear();document.exitPointerLock?.();$("overlay").hidden=false;$("hud").hidden=true;$("touch").hidden=true;
+    ritual.end();ritual.setPressing(false);sound.play(false);phase="paused";keys.clear();document.exitPointerLock?.();$("overlay").hidden=false;$("hud").hidden=true;$("touch").hidden=true;
     $("title").textContent="Paused";$("intro").textContent="Your drink is right where you left it.";$("start").textContent="Resume";
   }
-  function finish() {
-    setStage(20);
+  function finish(drink) {
     phase="verdict";keys.clear();document.exitPointerLock?.();$("verdict").hidden=false;$("hud").hidden=true;$("touch").hidden=true;
-    const strength=recipe.scoops*38/(recipe.paste+recipe.water+recipe.milk*.25);
-    const score=Math.max(15,Math.min(100,Math.round(100-Math.abs(strength-.80)*35-Math.abs(recipe.paste-5)*2-Math.abs(recipe.ice-4)*3-Math.max(0,9-recipe.strokes)*1.6-(recipe.sweet===3?3:0))));
+    const strength=drink.servedScoops*250/(Math.max(1,drink.milk)*3);
+    const ratioPenalty=Math.abs(Math.log(Math.max(.01,strength)))*34;
+    const whiskPenalty=Math.min(30,Math.abs(35-drink.strokes)*.75);
+    const score=Math.max(15,Math.min(100,Math.round(100-ratioPenalty-whiskPenalty-Math.min(28,drink.spilled*.20))));
     $("score").textContent=score+" / 100";
-    $("judgment").textContent=score>=86?"“That’s lovely. I’m keeping the rest.”":strength>1.1?"“You can really taste the matcha! A little less powder would be good next time.”":"“Good first sip. I’d like it a little stronger and colder.”";
-    showHeld("");
+    $("judgment").textContent=score>=89?"Daisy: “That’s lovely. Can I keep it?”":strength>=1.3?"Daisy: “It’s a little strong for me. Try more milk next time.”":strength<.77?"Daisy: “I’d love a bit more matcha in this one.”":"Daisy: “The flavour is good. Let’s see how the next whisk goes.”";
   }
-  function cycle() {
-    if(phase!=="play"||!target)return;
-    const id=target.userData.id;
-    const key=id==="bowl"&&stage===4?"paste":id==="bowl"&&stage===6?"water":id==="glass"&&stage===14?"milk":id==="freezer"&&stage===11&&home.freezerDoor.open?"ice":id==="sweet"&&stage===8?"sweet":null;
-    if(!key)return;
-    choices[key]=(choices[key]+1)%dose[key].length;
-    say(key==="sweet"?dose[key][choices[key]]:dose[key][choices[key]]+(key==="ice"?" ice cubes":" ml"),1.1);
+  function interact(){
+    if(phase!=="play")return;
+    if(ritual.active()){ritual.end();return;}
+    if(target)ritual.use(target.userData.id);
   }
-  function toggle(door) { door.open=!door.open; }
-  function animateBowl(kind, which="bowl", tint="#c6d4b4") {
-    const start=performance.now();
-    animation={kind,which,tint,start,end:start+(kind==="whisk"?340:620)};
-  }
-  function interact() {
-    if(phase!=="play"||!target)return;
-    const id=target.userData.id, now=performance.now();
-    if(id==="leith"){say("Leith: Give me a moment. I’m just finishing my coffee.");return;}
-    if(id==="kettle"){
-      if(occupied){say("Leith is using the kettle. You can explore or come back in a moment.");return;}
-      if(stage===0){kettleAt=now+3700;setStage(1);say("The kettle is heating. Get your tools while you wait.");}
-      else if(kettleAt>now)say("The kettle is still heating.");
-      else say("Hot water is ready.");
-      return;
-    }
-    if(id==="cupboard"){
-      if(home.cupboardDoor.open && stage===1){
-        showHeld("Matcha kit");setStage(2);say("Kit collected. Set it down at the island’s soaking glass.");
-      } else toggle(home.cupboardDoor);
-      return;
-    }
-    if(id==="freezer"){
-      if(home.freezerDoor.open && stage===11){
-        recipe.ice=dose.ice[choices.ice];home.iceTray.visible=false;showHeld("Ice");setStage(12);
-        say(recipe.ice?recipe.ice+" cubes collected.":"You’re making it without ice.");
-      } else toggle(home.freezerDoor);
-      return;
-    }
-    if(id==="fridge"){
-      if(home.fridgeDoor.open && stage===13){
-        home.carton.visible=false;showHeld("Milk");setStage(14);
-      } else toggle(home.fridgeDoor);
-      return;
-    }
-    if(id==="bed"){say("Your bed. The kitchen is down the hall whenever you’re ready.");return;}
-    if(id==="judge"){
-      if(stage===19)finish();
-      else if(stage<19)say("“Bring me a sip when it’s ready.”");
-      return;
-    }
-    if(id==="soak" && stage===2){
-      if(!soakAt){
-        for(const object of [home.bowl,home.whisk,home.sieve,home.tin,home.sweet,home.soak.g,home.glass.g,home.strawRest])object.visible=true;
-        showHeld("");
-        if(kettleAt>now){say("The kettle needs another moment.");return;}
-        home.soak.milkMesh.visible=true;
-        home.whisk.position.set(2.87,1.141,-1.18);home.whisk.rotation.z=0;
-        soakAt=now+10000;say("Whisk soaking for ten seconds.");
-      } else if(now<soakAt)say("Soaking for "+Math.ceil((soakAt-now)/1000)+" more seconds.");
-      else{
-        home.whisk.position.set(2.28,1.094,-.85);home.whisk.rotation.z=1.52;
-        setStage(3);
-      }
-      return;
-    }
-    if(id==="sieve"&&(stage===3||stage===4)){
-      if(recipe.scoops===6){say("There’s already plenty of matcha in the bowl.");return;}
-      recipe.scoops++;home.liquid.visible=true;home.liquid.scale.setScalar(.68);home.liquid.material.color.set("#65762a");
-      if(stage===3)setStage(4);
-      say(recipe.scoops+" scoop"+(recipe.scoops===1?"":"s")+" in the bowl.");return;
-    }
-    if(id==="bowl"){
-      if(stage===4||stage===6){
-        const key=stage===4?"paste":"water";
-        recipe[key]=dose[key][choices[key]];
-        home.liquid.scale.setScalar(stage===4?.81:1);
-        home.liquid.material.color.set(stage===4?"#4c692d":"#698c40");
-        animateBowl("pour");setStage(stage+1);return;
-      }
-      if([5,7,9].includes(stage)){
-        recipe.strokes++;animateBowl("whisk");
-        if(stage===7)home.foam.forEach((mesh,i)=>{mesh.visible=i<recipe.strokes*3;});
-        if(recipe.strokes>=(stage===5?3:stage===7?9:12))setStage(stage+1);
-        else say(stage===5?"Work the clumps out.":"Keep whisking.",.55);
-        return;
-      }
-      if(stage===15){showHeld("Bowl of matcha");home.bowl.visible=home.liquid.visible=false;home.foam.forEach((m)=>m.visible=false);setStage(16);return;}
-    }
-    if(id==="sweet" && stage===8){
-      recipe.sweet=choices.sweet;setStage(recipe.sweet?9:10);say(recipe.sweet?dose.sweet[recipe.sweet]+" added.":"Leaving it unsweetened.");
-      return;
-    }
-    if(id==="glass"){
-      if(stage===10){setStage(11);say("Serving glass chosen. Find the ice in the lower freezer.");}
-      else if(stage===12){showHeld("");updateGlass(home.glass,false,false,false,recipe.ice);setStage(13);}
-      else if(stage===14){showHeld("");animateBowl("pour","glass","#f8eccc");updateGlass(home.glass,true,false,false,recipe.ice);setStage(15);}
-      else if(stage===16){showHeld("");animateBowl("pour","glass","#759044");home.bowl.visible=true;updateGlass(home.glass,true,true,false,recipe.ice);setStage(17);}
-      else if(stage===18){showHeld("Iced matcha");home.glass.g.visible=false;setStage(19);say("First sip taken. Bring it to the corner couch.");}
-      return;
-    }
-    if(id==="straw"&&stage===17){
-      home.strawRest.visible=false;updateGlass(home.glass,true,true,true,recipe.ice);setStage(18);return;
-    }
-  }
-  function prompt(id,label) {
-    const change=touch?" · tap prompt to change":" · Q to change";
-    if(id==="cupboard")return home.cupboardDoor.open?(stage===1?"Take the matcha kit":"Close cupboard"):"Open matcha cupboard";
-    if(id==="fridge")return home.fridgeDoor.open?(stage===13?"Take the milk":"Close fridge"):"Open fridge";
-    if(id==="freezer")return home.freezerDoor.open?(stage===11?"Take "+dose.ice[choices.ice]+" ice cubes"+change:"Close freezer"):"Open freezer";
-    if(id==="kettle")return occupied?"Kettle in use":stage===0?"Switch on kettle":"Check hot water";
-    if(id==="leith")return "Talk to Leith";
-    if(id==="judge")return stage===19?"Offer a sip":"Talk to your sister-in-law";
-    if(id==="bed")return "Look at the bed";
-    if(id==="soak"&&stage===2)return soakAt?(performance.now()<soakAt?"Check the soaking whisk":"Take out the whisk"):"Set down kit and soak whisk";
-    if(id==="sieve"&&(stage===3||stage===4))return recipe.scoops?"Sift another scoop":"Sift one scoop";
-    if(id==="bowl"){
-      if(stage===4||stage===6){const k=stage===4?"paste":"water";return "Pour "+dose[k][choices[k]]+" ml hot water"+change;}
-      if([5,7,9].includes(stage))return "Whisk · "+recipe.strokes+" strokes";
-      if(stage===15)return "Pick up the pink bowl";
-    }
-    if(id==="sweet"&&stage===8)return (choices.sweet?"Add "+dose.sweet[choices.sweet].toLowerCase():"Skip sweetener")+change;
-    if(id==="glass"){
-      const labels={10:"Choose this glass",12:"Put ice in the glass",14:"Pour "+dose.milk[choices.milk]+" ml milk"+change,16:"Pour the matcha",18:"Taste and pick up the drink"};
-      return labels[stage]||"";
-    }
-    if(id==="straw"&&stage===17)return "Add the glass straw";
-    return "";
-  }
+  function cycle(){if(phase==="play"&&target)ritual.cycle(target.userData.id);}
   function solid(x,z) {
     return home.solids.some((b)=>Math.abs(x-b.x)<b.w*.5+.21&&Math.abs(z-b.z)<b.d*.5+.21)
       || (occupied&&Math.hypot(x-home.leith.g.position.x,z-home.leith.g.position.z)<.43);
@@ -650,16 +925,19 @@ window.buildHome = function (scene) {
     const mz=(-Math.cos(yaw)*f-Math.sin(yaw)*s)*dt*2.38;
     if(!solid(feet.x+mx,feet.z))feet.x+=mx;
     if(!solid(feet.x,feet.z+mz))feet.z+=mz;
-    if(Math.abs(mx)+Math.abs(mz)>.002)motion+=dt*7;
+    if(Math.abs(mx)+Math.abs(mz)>.002){
+      motion+=dt*7;
+      if(motion>=nextStep){sound.effect("foot");nextStep=motion+Math.PI;}
+    }
     camera.position.set(feet.x,1.594+Math.sin(motion)*.018,feet.z);
   }
   function scan() {
     source.setFromCamera(aimPoint,camera);
-    const hits=source.intersectObjects(home.targets,false);
+    const hits=source.intersectObjects(home.targets,false).sort((a,b)=>ritual.priority(b.object.userData.id)-ritual.priority(a.object.userData.id)||a.distance-b.distance);
     target=null;
     let label="";
     for(const hit of hits){
-      if(hit.distance>2.5)break;
+      if(hit.distance>2.5)continue;
       const data=hit.object.userData;
       if(data.id==="leith"&&!occupied)continue;
       // Walls interrupt a reach across rooms.
@@ -669,7 +947,7 @@ window.buildHome = function (scene) {
         if(home.solids.some((b)=>(b.w<.2||b.d<.2)&&Math.abs(origin.x+direction.x*d-b.x)<b.w/2&&Math.abs(origin.z+direction.z*d-b.z)<b.d/2)){blocked=true;break;}
       }
       if(blocked)continue;
-      const copy=prompt(data.id,data.label);
+      const copy=ritual.prompt(data.id);
       if(copy){target=hit.object;label=copy;break;}
     }
     $("prompt").hidden=!label;
@@ -702,37 +980,23 @@ window.buildHome = function (scene) {
         if(t>=1){leithPlan.done=true;home.leith.g.visible=false;occupied=false;}
       }
     }
-    home.steam.visible=kettleAt>0&&now>kettleAt-1250&&now<kettleAt+18000;
+    const kettleAt=ritual.kettleAt();
+    home.steam.visible=!ritual.kettleOut()&&kettleAt>0&&now>kettleAt-1250&&now<kettleAt+18000;
     if(home.steam.visible)home.steam.children.forEach((m,i)=>{
       m.position.x=.04*Math.sin(now/430+i);
       m.position.y=(i*.045+now*.00018)% .45;
     });
-    if(animation) {
-      const {kind,which,tint,start,end}=animation;
-      const t=Math.min(1,(now-start)/(end-start));
-      if(kind==="whisk"){
-        if(t<1){
-          home.whisk.position.set(2.62+Math.sin(t*17)*.075,1.125,-.88);
-          home.whisk.rotation.z=Math.sin(t*16)*.43;
-        }else{
-          home.whisk.position.set(2.28,1.094,-.85);home.whisk.rotation.z=1.52;
-        }
-      } else {
-        const object=which==="glass"?home.glass.g:home.bowl;
-        const strength=Math.sin(t*Math.PI);
-        stream.visible=t<1;
-        stream.position.set(object.position.x+.014,object.position.y+.25,object.position.z);
-        stream.scale.set(1,.29+.71*strength,1);
-        stream.material.color.set(tint);stream.material.opacity=Math.min(.9,strength*2);
-        hand.rotation.z=strength*-.31;
-      }
-      if(t>=1){hand.rotation.z=0;animation=null;stream.visible=false;}
-    }
-    if(hand.visible)hand.position.y=-.23+Math.sin(motion)*.011;
+    if(!ritual.active()&&hand.visible)hand.position.y=-.23+Math.sin(motion)*.011;
   }
   function tick(now) {
     const dt=Math.min(.04,clock.getDelta());
-    if(phase==="play")walk(dt);
+    if(phase==="play"&&!ritual.active())walk(dt);
+    if(phase==="play"&&ritual.active()){
+      const x=(Number(keys.has("ArrowRight"))-Number(keys.has("ArrowLeft")))*dt*180;
+      const y=(Number(keys.has("ArrowDown"))-Number(keys.has("ArrowUp")))*dt*180;
+      if(x||y)ritual.move(x,y);
+      ritual.tick(now,dt,keys.has("Space"));
+    }
     else if(phase==="bed")camera.position.set(feet.x,.98,feet.z);
     rotate.set(pitch,yaw,0,"YXZ");camera.rotation.copy(rotate);
     camera.updateMatrixWorld();
@@ -747,25 +1011,28 @@ window.buildHome = function (scene) {
   }
   function resize() { renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix(); }
   function look(x,y) {
+    if(ritual.move(x,y))return;
     yaw-=x*.0026;
     pitch=THREE.MathUtils.clamp(pitch-y*.0026,-1.38,1.38);
   }
   addEventListener("resize",resize);
-  addEventListener("blur",()=>keys.clear());
+  addEventListener("blur",()=>{keys.clear();ritual.setPressing(false);});
   addEventListener("keydown",(e)=>{
-    if(e.code==="Escape"){pause();return;}
+    if(e.code==="Escape"){if(!ritual.end())pause();return;}
     if(phase!=="play")return;
-    if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyE","KeyQ"].includes(e.code))e.preventDefault();
+    if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyE","KeyQ","KeyR","Space"].includes(e.code))e.preventDefault();
     keys.add(e.code);
     if(e.code==="KeyE"&&!e.repeat)interact();
     if(e.code==="KeyQ"&&!e.repeat)cycle();
+    if(e.code==="KeyR"&&!e.repeat)ritual.secondary(target?.userData.id);
   });
   addEventListener("keyup",(e)=>keys.delete(e.code));
   document.addEventListener("mousemove",(e)=>{if(phase==="play"&&document.pointerLockElement===renderer.domElement)look(e.movementX,e.movementY);});
   const canvas=renderer.domElement;
   canvas.addEventListener("pointerdown",(e)=>{
     if(phase!=="play")return;
-    if(document.pointerLockElement===canvas){interact();return;}
+    if(document.pointerLockElement===canvas){if(ritual.active())ritual.setPressing(true);else interact();return;}
+    if(ritual.active()&&!touch)ritual.setPressing(true);
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false};canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener("pointermove",(e)=>{
@@ -774,10 +1041,11 @@ window.buildHome = function (scene) {
     if(Math.abs(x)+Math.abs(y)>2){drag.moved=true;look(x*(touch?1.65:1),y*(touch?1.65:1));}
     drag.x=e.clientX;drag.y=e.clientY;
   });
-  canvas.addEventListener("pointerup",()=>{if(drag&&!drag.moved)interact();drag=null;});
-  canvas.addEventListener("pointercancel",()=>{drag=null;});
+  canvas.addEventListener("pointerup",()=>{if(drag&&!drag.moved&&!ritual.active())interact();drag=null;ritual.setPressing(false);});
+  canvas.addEventListener("pointercancel",()=>{drag=null;ritual.setPressing(false);});
+  document.addEventListener("mouseup",()=>ritual.setPressing(false));
   document.addEventListener("pointerlockchange",()=>{
-    if(!document.pointerLockElement&&phase==="play"&&!touch)say("Drag to look, or pause and resume for mouse look.",2.7);
+    if(!document.pointerLockElement&&phase==="play"&&!touch&&!ritual.active())say("Drag to look, or pause and resume for mouse look.",2.7);
   });
   const pad=$("pad");
   function joystick(e){
@@ -795,6 +1063,16 @@ window.buildHome = function (scene) {
     $("prompt").onclick=cycle;
   }
   $("touch-use").onclick=interact;
+  $("touch-back").onclick=()=>ritual.secondary(target?.userData.id);
+  const touchPour=$("touch-pour");
+  touchPour.onpointerdown=(event)=>{touchPour.setPointerCapture(event.pointerId);ritual.setPressing(true);};
+  touchPour.onpointerup=touchPour.onpointercancel=()=>ritual.setPressing(false);
+  $("audio").onclick=()=>{
+    const enabled=sound.toggle();
+    $("audio").textContent=enabled?"Sound on":"Sound off";
+    $("audio").setAttribute("aria-pressed",String(enabled));
+  };
+
   $("start").onclick=()=>{if(phase==="bed")begin();else resume();};
   $("pause").onclick=pause;$("explore").onclick=resume;
   $("restart").onclick=()=>{reset();begin();};
