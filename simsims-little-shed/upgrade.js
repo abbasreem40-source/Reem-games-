@@ -1,6 +1,6 @@
 // Persistent family life, free flight, and camera improvements.
 let thirdPerson=false,incubationStart=0,baby=null,offspring=[],history=[],outsideFlight=false,saveWarning=false,ambienceVolume=.3,effectsVolume=.7;
-const roofs=[{name:'House above the garden',x:0,z:68,w:15,d:9,h:7.6},{name:'Home shed',x:0,z:0,w:8,d:10,h:3.41},{name:'Garden house',x:0,z:-25,w:8,d:5,h:7},{name:'West rooftop',x:-17,z:-25,w:7,d:5,h:7},{name:'East rooftop',x:17,z:-25,w:7,d:5,h:7},{name:'Far rooftop',x:17,z:-49,w:7,d:5,h:7}];
+const roofs=[{name:'House above the garden',x:0,z:68,w:15.9,d:9.8,h:7.165},{name:'Home shed',x:0,z:0,w:8.5,d:10.5,h:3.4125},...houseRoofs];
 const originalUi=ui,originalRender=render,originalMove=move,originalPigeon=pigeon,originalGoFly=goFly,originalPerch=perch,originalWings=wings,originalStep=step;
 let recordings={female:'',male:''};let cooFemale=new Audio(),cooMale=new Audio(),maleTimer=0;const activeSounds=new Set();
 function playCoo(who,ambient=false){if(muted||paused||!started)return;if(!recordings[who]){cooSound(who==='male'?190:245,.7,ambient?ambienceVolume*.3:effectsVolume);return}const sound=(who==='male'?cooMale:cooFemale).cloneNode();sound.volume=ambient?ambienceVolume*.32:effectsVolume;sound.currentTime=0;activeSounds.add(sound);sound.onended=()=>activeSounds.delete(sound);sound.play().catch(()=>{activeSounds.delete(sound);if(!ambient)cooSound(who==='male'?190:245,.7)});const limit=who==='male'?5:6;sound.ontimeupdate=()=>{if(sound.currentTime>=limit){sound.pause();activeSounds.delete(sound)}};setTimeout(()=>{sound.pause();sound.currentTime=0;activeSounds.delete(sound)},limit*1000)}
@@ -28,9 +28,9 @@ function pigeonChorus(){
  }
 }
 function logEvent(text){history.push({at:Date.now(),text});history=history.slice(-100)}
-function snapshot(){return {version:3,recordings,seeds,partner,egg,bonds,incubationStart,baby,offspring,history,thirdPerson,flightSeconds,flightCarry,ambienceVolume,effectsVolume,savedAt:Date.now()}}
+function snapshot(){return {version:3,recordings,seeds,partner,egg,bonds,incubationStart,baby,offspring,history,thirdPerson,flightSeconds,flightCarry,ambienceVolume,effectsVolume,feeding:{lastFeed,seedStock,musicVolume},savedAt:Date.now()}}
 save=function(){const data=snapshot();try{const json=JSON.stringify(data);localStorage.setItem('simsim3d',json);localStorage.setItem('simsim3d-backup',json);saveWarning=false;$('saveState').textContent='Saved on this browser · '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}catch{saveWarning=true;$('saveState').textContent='Browser save blocked — use Export save'}return data};
-function restoreGame(data){if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid save');seeds=Number.isFinite(data.seeds)?Math.max(0,Math.min(100000,data.seeds)):0;partner=birds.some(b=>b.name===data.partner&&b.sex==='male')?data.partner:null;bonds={};for(let b of birds){const n=Number(data.bonds?.[b.name]);if(Number.isFinite(n))bonds[b.name]=Math.max(0,Math.min(2,Math.floor(n)))}if(!partner){const found=birds.find(b=>b.sex==='male'&&bonds[b.name]>=2);if(found)partner=found.name}egg=!!data.egg&&!!partner;incubationStart=egg&&Number.isFinite(data.incubationStart)&&data.incubationStart>0?data.incubationStart:0;baby=data.baby&&/^#[0-9a-f]{6}$/i.test(data.baby.c)&&/^#[0-9a-f]{6}$/i.test(data.baby.wing)?{name:'Little Pip',c:data.baby.c,wing:data.baby.wing,pattern:Math.max(0,Math.min(1,+data.baby.pattern||0)),bornAt:+data.baby.bornAt||Date.now()}:null;recordings={female:typeof data.recordings?.female==='string'&&data.recordings.female.startsWith('data:audio/')?data.recordings.female:'',male:typeof data.recordings?.male==='string'&&data.recordings.male.startsWith('data:audio/')?data.recordings.male:''};offspring=Array.isArray(data.offspring)?data.offspring.filter(v=>v&&/^#[0-9a-f]{6}$/i.test(v.c)&&/^#[0-9a-f]{6}$/i.test(v.wing)&&Number.isFinite(+v.bornAt)).slice(0,20).map((v,i)=>({name:String(v.name||'Little Pip '+(i+1)).slice(0,40),c:v.c,wing:v.wing,pattern:Math.min(1,Math.max(0,+v.pattern||0)),bornAt:+v.bornAt,father:String(v.father||'')})):[];
+function restoreGame(data){if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid save');restoreFeeding(data.feeding);seeds=Number.isFinite(data.seeds)?Math.max(0,Math.min(100000,data.seeds)):0;partner=birds.some(b=>b.name===data.partner&&b.sex==='male')?data.partner:null;bonds={};for(let b of birds){const n=Number(data.bonds?.[b.name]);if(Number.isFinite(n))bonds[b.name]=Math.max(0,Math.min(2,Math.floor(n)))}if(!partner){const found=birds.find(b=>b.sex==='male'&&bonds[b.name]>=2);if(found)partner=found.name}egg=!!data.egg&&!!partner;incubationStart=egg&&Number.isFinite(data.incubationStart)&&data.incubationStart>0?data.incubationStart:0;baby=data.baby&&/^#[0-9a-f]{6}$/i.test(data.baby.c)&&/^#[0-9a-f]{6}$/i.test(data.baby.wing)?{name:'Little Pip',c:data.baby.c,wing:data.baby.wing,pattern:Math.max(0,Math.min(1,+data.baby.pattern||0)),bornAt:+data.baby.bornAt||Date.now()}:null;recordings={female:typeof data.recordings?.female==='string'&&data.recordings.female.startsWith('data:audio/')?data.recordings.female:'',male:typeof data.recordings?.male==='string'&&data.recordings.male.startsWith('data:audio/')?data.recordings.male:''};offspring=Array.isArray(data.offspring)?data.offspring.filter(v=>v&&/^#[0-9a-f]{6}$/i.test(v.c)&&/^#[0-9a-f]{6}$/i.test(v.wing)&&Number.isFinite(+v.bornAt)).slice(0,20).map((v,i)=>({name:String(v.name||'Little Pip '+(i+1)).slice(0,40),c:v.c,wing:v.wing,pattern:Math.min(1,Math.max(0,+v.pattern||0)),bornAt:+v.bornAt,father:String(v.father||'')})):[];
 if(baby&&!offspring.some(v=>v.bornAt===baby.bornAt))offspring.push({...baby,father:partner||''});
 if(offspring.length&&!egg)partner=null;
 if(recordings.female)cooFemale.src=recordings.female;if(recordings.male)cooMale.src=recordings.male;history=Array.isArray(data.history)?data.history.filter(v=>v&&typeof v.text==='string'&&Number.isFinite(v.at)).slice(-100):[];thirdPerson=!!data.thirdPerson;flightCarry=Number.isFinite(data.flightCarry)?Math.max(0,data.flightCarry%20):0;flightSeconds=Number.isFinite(data.flightSeconds)?Math.max(0,data.flightSeconds):0;ambienceVolume=Number.isFinite(data.ambienceVolume)?Math.max(0,Math.min(1,data.ambienceVolume)):.3;effectsVolume=Number.isFinite(data.effectsVolume)?Math.max(0,Math.min(1,data.effectsVolume)):.7;if(egg&&!incubationStart)incubationStart=Date.now();checkHatch();ui()}
@@ -48,7 +48,7 @@ function checkHatch(now=Date.now()){
  toast(child.name+' hatched! You can find another mate now.');
  save();ui();
 }
-ui=function(){originalUi();$('view').textContent=thirdPerson?'First person [V]':'Third person [V]';$('fly').innerHTML=isFlying()?'Go to trap [F]':'Take off [F]';if(isFlying())$('place').textContent=(outsideFlight?'Flying above Woodingdean':'Flying inside the shed')+' · '+Math.max(0,cam.y-.44).toFixed(1)+' m';if(mode==='garden'){$('place').textContent='Exploring the terraced garden';$('fly').textContent='Take off [F]'}if(mode==='manShoulder'||mode==='manLap'){$('place').textContent=mode==='manShoulder'?'On his shoulder':'On his lap';$('fly').textContent='Take off [F]'}if(mode==='localRoof'){$('place').textContent='Resting on a neighbourhood rooftop';$('perch').textContent='Return to home roof [P]'}if(!egg&&offspring.length)$('bond').textContent=(partner?'Partner: '+partner+' · ':'')+offspring.length+' chick(s) · '+offspring.filter(v=>Date.now()-v.bornAt>=86400000).length+' in the flock';else if(egg&&incubationStart){let seconds=Math.max(0,Math.ceil((1800000-(Date.now()-incubationStart))/1000));$('bond').textContent=partner+' is sitting on your egg · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')}if(mode==='box')$('nest').textContent='Leave our box [B]'};
+ui=function(){originalUi();$('view').textContent=thirdPerson?'First person [V]':'Third person [V]';$('fly').innerHTML=isFlying()?'Go to trap [F]':'Take off [F]';if(isFlying())$('place').textContent=(outsideFlight?'Flying above Woodingdean':'Flying inside the shed')+' · '+Math.max(0,cam.y-.44).toFixed(1)+' m';if(mode==='garden'){$('place').textContent='Exploring the terraced garden';$('fly').textContent='Take off [F]'}if(mode==='manShoulder'||mode==='manLap'){$('place').textContent=mode==='manShoulder'?'On his shoulder':'On his lap';$('fly').textContent='Take off [F]'}if(mode==='localRoof'){$('place').textContent='Resting on '+(surfaceAt(cam.x,cam.z)?.name||'a neighbourhood roof');$('perch').textContent='Return to home roof [P]'}if(!egg&&offspring.length)$('bond').textContent=(partner?'Partner: '+partner+' · ':'')+offspring.length+' chick(s) · '+offspring.filter(v=>Date.now()-v.bornAt>=86400000).length+' in the flock';else if(egg&&incubationStart){let seconds=Math.max(0,Math.ceil((1800000-(Date.now()-incubationStart))/1000));$('bond').textContent=partner+' is sitting on your egg · '+Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')}if(mode==='box')$('nest').textContent='Leave our box [B]'};
 function isFlying(){return mode==='air'||mode==='lap'||mode==='landing'||!!motion?.flying}
 function toggleView(){thirdPerson=!thirdPerson;save();ui()}
 function viewCamera(){if(!thirdPerson)return cam;let distance=(mode==='box'?.65:outsideFlight?2.6:1.3),x=cam.x-Math.sin(cam.yaw)*distance,z=cam.z-Math.cos(cam.yaw)*distance,y=cam.y+.6;if(!outsideFlight&&mode!=='roof'&&mode!=='localRoof'){x=Math.max(-3.7,Math.min(3.7,x));z=Math.max(-4.75,Math.min(4.65,z));y=Math.min(2.95,y)}return {x,y,z}}
@@ -59,7 +59,30 @@ goFly=function(){if(motion)return;
     ui();return;
   }
   if(mode==='box')return toast('B to leave your nesting box first.');if(mode==='air'){if(!outsideFlight){mode='floor';originalGoFly()}else landNear();return}outsideFlight=mode==='roof'||mode==='localRoof';mode='air';cam.y+=.25;toast('You control flight: W/S forward/back, A/D sideways, arrows ↑↓ height and ←→ turn. L to land.');ui()};
-function surfaceAt(x,z){let found=null;for(let r of roofs)if(Math.abs(x-r.x)<r.w/2&&Math.abs(z-r.z)<r.d/2)found=r;return found}
+function surfaceAt(x,z) {
+  return roofs.find(r=>Math.abs(x-r.x)<r.w/2 && Math.abs(z-r.z)<r.d/2);
+}
+function roofHeight(roof,z) {
+  return roof.h-(roof.rise||0)*Math.abs(z-roof.z)/(roof.d/2);
+}
+let flockRoof=null;
+function roofLanding(roof) {
+  const x=Math.max(roof.x-roof.w/2+.45,Math.min(roof.x+roof.w/2-.45,cam.x));
+  const z=Math.max(roof.z-roof.d/2+.45,Math.min(roof.z+roof.d/2-.45,cam.z));
+  const y=roofHeight(roof,z)+.44;
+  const withFlock=flockFlightUntil>time;
+  toast('Landing on '+roof.name+'…');
+  travel({x,y:Math.max(cam.y,roof.h+.65),z},1,()=>{
+    travel({x,y,z},1,()=>{
+      mode=roof.name==='Home shed'?'roof':'localRoof';
+      outsideFlight=true;
+      if(withFlock)flockRoof=roof;
+      logEvent('Landed on '+roof.name);
+      save();
+      ui();
+    });
+  });
+}
 
 // A lightweight terraced-garden collision surface. The shed stays at height zero.
 function gardenHeight(x,z){
@@ -77,7 +100,7 @@ function manPerch(which){
     return toast('Fly closer to the man by the bench.');
   const shoulder=which==='shoulder';
   cowboyRestUntil=time+90; // He sits down so shoulder or lap landing remains stable.
-  const point=shoulder?{x:4.54,y:1.88,z:9.03}:{x:5,y:1.1,z:8.72};
+  const point=shoulder?{x:man.x-.46,y:man.y+1.88,z:man.z+.03}:{x:man.x,y:man.y+1.1,z:man.z-.28};
   travel(point,1.15,()=>{
     mode=shoulder?'manShoulder':'manLap';
     outsideFlight=true;
@@ -85,7 +108,9 @@ function manPerch(which){
     ui();
   });
 }
-function landNear(){if(motion)return;if(!outsideFlight){const near=perches.find(p=>Math.hypot(p.x-cam.x,p.z-cam.z)<.9&&Math.abs(cam.y-(p.y+.44))<.9);if(near){travel({x:3.35,y:near.y+.44,z:near.z},.8,()=>{mode='perch';ui()})}else travel({x:Math.max(-2.8,Math.min(3,cam.x)),y:.44,z:Math.max(-3.7,Math.min(4.4,cam.z))},1,()=>{mode='floor';ui()});return}const height=gardenHeight(cam.x,cam.z);
+function landNear(){if(motion)return;if(!outsideFlight){const near=perches.find(p=>Math.hypot(p.x-cam.x,p.z-cam.z)<.9&&Math.abs(cam.y-(p.y+.44))<.9);if(near){travel({x:3.35,y:near.y+.44,z:near.z},.8,()=>{mode='perch';ui()})}else travel({x:Math.max(-2.8,Math.min(3,cam.x)),y:.44,z:Math.max(-3.7,Math.min(4.4,cam.z))},1,()=>{mode='floor';ui()});return}const roof=surfaceAt(cam.x,cam.z);
+  if(roof)return roofLanding(roof);
+  const height=gardenHeight(cam.x,cam.z);
   if(mode==='air' && height!==null && cam.y<14){
     const target={x:cam.x,y:height+.44,z:cam.z};
     toast(height>1.3?'Landing on the patio…':height>.4?'Landing on the lawn…':'Landing by the shed…');
@@ -94,7 +119,8 @@ function landNear(){if(motion)return;if(!outsideFlight){const near=perches.find(
     });
     return;
   }
-  let r=roofs.find(r=>Math.hypot(cam.x-r.x,cam.z-r.z)<Math.max(r.w,r.d)/2+5);if(!r)return toast('Fly closer to a gold-marked rooftop. R returns you home.');toast('Landing on '+r.name+'…');travel({x:r.x,y:r.h+.44,z:r.z},2,()=>{mode=r.name==='Home shed'?'roof':'localRoof';outsideFlight=true;logEvent('Landed on '+r.name);save();ui()})}
+  toast('Fly directly above a roof to land. R returns you home.');
+}
 function returnHome(){if(motion)return;if(!outsideFlight){originalGoFly();return}toast('Flying back to your shed…');mode='landing';const lift=Math.max(12,cam.y);travel({x:cam.x,y:lift,z:cam.z},1,()=>travel({x:0,y:lift,z:2.6},3,()=>travel({x:0,y:3.85,z:2.6},2,()=>{mode='roof';cam.yaw=Math.PI;cam.pitch=-.1;outsideFlight=true;ui()})))}
 perch=function(){if(mode==='localRoof')return returnHome();if(mode==='air')return landNear();originalPerch()};
 nest=function(){if(motion)return;if(!partner&&!offspring.some(c=>Date.now()-c.bornAt<86400000))return toast('Form a partnership to unlock a nest.');if(mode==='box'){travel({x:-.8,y:.44,z:-2.8},2,()=>{mode='floor';ui()});return}if(outsideFlight||mode==='air')return toast('Return inside and land before visiting your family.');travel({x:-1.1,y:2.25,z:-3.78},2.5,()=>{mode='box';cam.yaw=Math.PI;cam.pitch=-.07;toast(egg&&partner?partner+' is keeping your egg warm.':offspring.some(c=>Date.now()-c.bornAt<86400000)?'Your little chicks are resting here.':'A quiet nesting box.');ui()})};
@@ -109,7 +135,18 @@ move=function(dt){
     return;
   }
   if(mode==='manShoulder'||mode==='manLap')return;
-  if(mode!=='air')return originalMove(dt);if(motion)return;cam.yaw+=((keys.arrowright?1:0)-(keys.arrowleft?1:0))*dt*1.4;let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0),u=(keys.arrowup||keys[' ']?1:0)-(keys.arrowdown||keys.shift?1:0),speed=outsideFlight?9:1.8,n=Math.max(1,Math.hypot(f,s));let nx=cam.x+(Math.sin(cam.yaw)*f+Math.cos(cam.yaw)*s)*speed*dt/n,nz=cam.z+(Math.cos(cam.yaw)*f-Math.sin(cam.yaw)*s)*speed*dt/n,ny=Math.max(.5,Math.min(65,cam.y+u*dt*(outsideFlight?5:1.5)));if(!outsideFlight){if(nz>=4.9&&nx>-3.55&&nx<-2.65&&ny>2.15&&ny<2.8){outsideFlight=true;toast('Through the pigeon trap. The sky is yours!')}else{nx=Math.max(-2.85,Math.min(3.3,nx));nz=Math.max(-3.72,Math.min(4.85,nz));ny=Math.min(2.95,ny)}if(nx>-.98&&nx<1.25&&nz>-2.55&&nz<-1.05&&ny<1.25){nx=cam.x;nz=cam.z}}else{let inside=Math.abs(nx)<4&&Math.abs(nz)<5&&ny<3.7;if(inside){if(cam.z>=4.9&&nz<5&&nx>-3.55&&nx<-2.65&&ny>2.15&&ny<2.8){outsideFlight=false;toast('Back through the trap. L to land.')}else{nx=cam.x;nz=cam.z;ny=Math.max(ny,3.9)}}for(let r of roofs){if(Math.abs(nx-r.x)<r.w/2&&Math.abs(nz-r.z)<r.d/2&&ny<r.h+.48){if(cam.y>=r.h+.45)ny=r.h+.48;else{nx=cam.x;nz=cam.z}}}if(Math.abs(nx)>105||nz<-100||nz>90){nx=cam.x;nz=cam.z;toast('Stay close to home. R returns to the shed.')}}cam.x=nx;cam.y=ny;cam.z=nz;consumeFlight(dt)};
+  if(mode!=='air')return originalMove(dt);if(motion)return;cam.yaw+=((keys.arrowright?1:0)-(keys.arrowleft?1:0))*dt*1.4;let f=(keys.w?1:0)-(keys.s?1:0),s=(keys.d?1:0)-(keys.a?1:0),u=(keys.arrowup||keys[' ']?1:0)-(keys.arrowdown||keys.shift?1:0),speed=outsideFlight?9:1.8,n=Math.max(1,Math.hypot(f,s));let nx=cam.x+(Math.sin(cam.yaw)*f+Math.cos(cam.yaw)*s)*speed*dt/n,nz=cam.z+(Math.cos(cam.yaw)*f-Math.sin(cam.yaw)*s)*speed*dt/n,ny=Math.max(.5,Math.min(65,cam.y+u*dt*(outsideFlight?5:1.5)));if(!outsideFlight){if(nz>=4.9&&nx>-3.55&&nx<-2.65&&ny>2.15&&ny<2.8){outsideFlight=true;toast('Through the pigeon trap. The sky is yours!')}else{nx=Math.max(-2.85,Math.min(3.3,nx));nz=Math.max(-3.72,Math.min(4.85,nz));ny=Math.min(2.95,ny)}if(nx>-.98&&nx<1.25&&nz>-2.55&&nz<-1.05&&ny<1.25){nx=cam.x;nz=cam.z}}else{let inside=Math.abs(nx)<4&&Math.abs(nz)<5&&ny<3.7;if(inside){if(cam.z>=4.9&&nz<5&&nx>-3.55&&nx<-2.65&&ny>2.15&&ny<2.8){outsideFlight=false;toast('Back through the trap. L to land.')}else{nx=cam.x;nz=cam.z;ny=Math.max(ny,3.9)}}if(outsideFlight){
+    const roof=surfaceAt(nx,nz);
+    if(roof && !(roof.name==='Home shed' && nz>4.8 && nx>-3.55 && nx<-2.65 && ny<2.8)){
+      const minimum=roofHeight(roof,nz)+.44;
+      const previous=surfaceAt(cam.x,cam.z);
+      if(ny<minimum){
+        if(previous===roof || cam.y>=minimum-.25)ny=minimum;
+        else{nx=cam.x;nz=cam.z}
+      }
+    }
+  }
+  if(Math.abs(nx)>140||nz<-110||nz>450){nx=cam.x;nz=cam.z;toast('Stay close to home. R returns to the shed.')}}cam.x=nx;cam.y=ny;cam.z=nz;consumeFlight(dt)};
 animateBirds=function(dt){for(let [i,b] of birds.entries()){if(b.name===partner&&egg&&!isFlying()){b.x=-.75;b.y=1.87;b.z=-4.25;b.walking=false;b.flying=false;continue}if(!b.goal||time>b.until){let p=perches[i%4];b.from={x:b.x,y:b.y||0,z:b.z};b.goal=rand()<.15?{x:p.x-.06,y:p.y+.04,z:p.z}:{x:-2.5+rand()*5,y:0,z:-3.3+rand()*6.5};b.travelTime=0;b.until=time+7+rand()*10;b.flying=(b.y||0)>.1||b.goal.y>.1}if(b.timid&&mode==='floor'&&Math.hypot(b.x-cam.x,b.z-cam.z)<1){b.goal={x:Math.max(-2.6,Math.min(2.6,b.x+(b.x-cam.x))),y:0,z:Math.max(-3.4,Math.min(3.4,b.z+b.z-cam.z))}}let dx=b.goal.x-b.x,dz=b.goal.z-b.z,dist=Math.hypot(dx,dz);b.heading=Math.atan2(dx,dz);if(b.flying){b.travelTime+=dt;let f=Math.min(1,b.travelTime/1.4),ease=f*f*(3-2*f);b.x=b.from.x+(b.goal.x-b.from.x)*ease;b.z=b.from.z+(b.goal.z-b.from.z)*ease;b.y=b.from.y+(b.goal.y-b.from.y)*ease+Math.sin(f*Math.PI)*.35;if(f===1){b.y=b.goal.y;b.flying=false;b.walking=false;b.until=time+4}}else if((b.y||0)<.1&&dist>.05){let speed=b.timid?.7:.42,step=Math.min(dist,speed*dt),nx=b.x+dx/dist*step,nz=b.z+dz/dist*step;if(nx>-.98&&nx<1.25&&nz>-2.55&&nz<-1.05){b.goal={x:2,y:0,z:b.z};b.until=time+2}else{b.x=nx;b.z=nz}b.y=0;b.walking=true;b.gait=(b.gait||0)+dt*11}else b.walking=false}};
 pigeon=function(b,t,scale=1){const start=geo.length;originalPigeon(b,t,scale);if(b.flying){for(let side of [-1,1]){let lift=Math.sin(t*18)*.17;ell(b.x+side*.3,(b.y||0)+.38+lift,b.z,.29,.045,.17,b.wing)}}let angle=b.heading||0,c=Math.cos(angle),s=Math.sin(angle),small=b.chick?.48:1;for(let j=start;j<geo.length;j+=6){let x=(geo[j]-b.x)*small,z=(geo[j+2]-b.z)*small;geo[j]=b.x+x*c+z*s;geo[j+2]=b.z+z*c-x*s;geo[j+1]=(b.y||0)+(geo[j+1]-(b.y||0))*small}if((b.y||0)<.1)ell(b.x,.009,b.z,.2,.004,.3,'#67705c')};
 function familyGeometry(){
@@ -159,23 +196,45 @@ animateBirds=function(dt){
 let flockFlightUntil=0,flockFlightStarted=0,flockFlightReturning=false;
 function inviteFlock(){
  if(!started||paused)return;
- if(flockFlightUntil>time){
+ if(flockFlightUntil>time || flockRoof){
+   flockRoof=null;
    flockFlightUntil=0;flockFlightReturning=true;
    toast('The flock is returning to the shed.');
    return;
  }
  if(mode!=='air'||!outsideFlight)return toast('Fly outside first, then press G to invite everyone.');
- flockFlightStarted=time;flockFlightUntil=time+55;flockFlightReturning=false;
+ flockFlightStarted=time;flockFlightUntil=time+90;flockFlightReturning=false;
  toast('The flock answers your call! Fly together for a while. G calls everyone home.');
 }
 const animateBeforeGroupFlight=animateBirds;
 animateBirds=function(dt){
+ if(flockRoof && mode!=='air' && mode!=='landing'){
+   const roof=flockRoof;
+   birds.forEach((bird,i)=>{
+     const x=roof.x+((i%5)-2)*roof.w*.13;
+     const z=roof.z+(Math.floor(i/5)-1)*roof.d*.17;
+     const y=roofHeight(roof,z);
+     const blend=Math.min(1,dt*2.8);
+     bird.x+=(x-bird.x)*blend;
+     bird.z+=(z-bird.z)*blend;
+     bird.y=(bird.y||0)+(y-(bird.y||0))*blend;
+     bird.flying=Math.hypot(x-bird.x,y-bird.y,z-bird.z)>.05;
+     if(!bird.flying){bird.x=x;bird.y=y;bird.z=z}
+     else if(surfaceAt(bird.x,bird.z)===roof)bird.y=Math.max(bird.y,roofHeight(roof,bird.z));
+     bird.walking=false;
+   });
+   return;
+ }
+ if(flockRoof && mode==='air'){
+   flockRoof=null;
+   flockFlightUntil=time+90;
+ }
  if(flockFlightUntil>time && mode==='air' && outsideFlight){
    birds.forEach((b,i)=>{
      const angle=(i/Math.max(1,birds.length))*Math.PI*2+time*.12;
      const distance=1.7+(i%4)*.45,side=Math.cos(angle)*distance,back=Math.sin(angle)*distance;
-     const tx=cam.x+side*Math.cos(cam.yaw)-back*Math.sin(cam.y);
-     const tz=cam.z-side*Math.sin(cam.yaw)-back*Math.cos(cam.y);
+     const tx=cam.x+side*Math.cos(cam.yaw)-back*Math.sin(cam.yaw);
+     const tz=cam.z-side*Math.sin(cam.yaw)-back*Math.cos(cam.yaw);
      const ty=Math.max(.6,cam.y-.3+Math.sin(time*4+i)*.22);
      const k=Math.min(1,dt*3.1);
      b.x+=(tx-b.x)*k;b.z+=(tz-b.z)*k;b.y=(b.y||0)+(ty-(b.y||0))*k;
@@ -204,9 +263,9 @@ animateBirds=function(dt){
  }
  animateBeforeGroupFlight(dt);
 };
-step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floor','perch','box'].includes(mode))outsideFlight=false;if(mode==='roof'||mode==='localRoof')outsideFlight=true;checkHatch();if(mode==='air'&&time>nextFlap){flap();nextFlap=time+.27}if(time>backgroundAt){playCoo(rand()>.5?'male':'female',true);backgroundAt=time+8+rand()*10}if(time>choirAt){pigeonChorus();choirAt=time+3+rand()*5}if(time>flutterAt){if(rand()>.5)flap(true);flutterAt=time+5+rand()*10}if(time>autoSaveAt){save();autoSaveAt=time+5}};let backgroundAt=6,flutterAt=4,autoSaveAt=5;
+step=function(dt){originalStep(dt);if(!started||paused)return;if(!motion&&['floor','perch','box'].includes(mode))outsideFlight=false;if(mode==='roof'||mode==='localRoof')outsideFlight=true;checkHatch();updateCowboy(dt);updateMusic();if(mode==='air'&&time>nextFlap){flap();nextFlap=time+.27}if(time>backgroundAt){playCoo(rand()>.5?'male':'female',true);backgroundAt=time+8+rand()*10}if(time>choirAt){pigeonChorus();choirAt=time+3+rand()*5}if(time>flutterAt){if(rand()>.5)flap(true);flutterAt=time+5+rand()*10}if(time>autoSaveAt){save();autoSaveAt=time+5}};let backgroundAt=6,flutterAt=4,autoSaveAt=5;
 // Clearer garden, paths, planted borders, roof terraces, and soft clouds.
-geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let r of roofs.slice(1)){box(r.x,r.h-.07,r.z,r.w,.14,r.d,'#8c8074');for(let x of [-1,1])box(r.x+x*r.w/2,r.h+.13,r.z,.1,.35,r.d,'#9a8e7e');ell(r.x,r.h+.015,r.z,.65,.012,.65,'#d7bf76');ell(r.x,r.h+.03,r.z,.48,.01,.48,'#8c8074')}for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');
+geo=[];for(let z=-14;z<14;z+=.6){box(5.5,.025,z,1.15,.06,.55,'#c2b89e');box(-6.9,.05,z,1.2,.1,.55,'#75684d');for(let k=0;k<3;k++)ell(-6.9+(k-1)*.3,.24+rand()*.15,z,.18,.25,.2,k%2?'#8a9b66':'#b6a27c')}box(0,-.02,10,17,.03,8,'#93a878');for(let x of [-8.4,8.4])for(let z=-13;z<14;z+=1.3)ell(x,.9,z,.5,.85,.7,'#6b845a');box(5,.45,9,2,.12,.7,'#9f8463');for(let x of [4.2,5.8])box(x,.2,9,.1,.5,.1,'#806f51');for(let i=0;i<17;i++){let x=-95+rand()*190,z=-90+rand()*180,y=45+rand()*18;for(let j=0;j<4;j++)ell(x+j*2,y+Math.sin(j)*1.1,z,4,1.5,2.6,'#e7e8df')}for(let z=-33;z>-40;z-=.9)box(0,.07,z,.17,.02,.4,'#d8d0b2');
 
 /* Wooden bench: stationary. Cowboy Hat Man is drawn as a moving character. */
 box(5,.45,9,2.4,.11,.75,'#87694d');
@@ -323,18 +382,116 @@ for(let i=0;i<15;i++){
  ell(x,-2.7,105,15,4.8+(i%4),18,i%2?'#8ba477':'#97b182');
 }
 
-// Autonomous but economical: a single character takes tea, looks around,
-// and occasionally takes a short walk beside his bench.
+const FEED_INTERVAL=24*60*60*1000;
+let lastFeed=0,seedStock=0,musicVolume=.25;
 let cowboyRestUntil=0;
-function cowboyPosition(){
- const walking=(time%55)>20 && time>cowboyRestUntil &&
-  mode!=='manLap' && mode!=='manShoulder';
- const t=Math.max(0,time%55-20);
- return {x:walking?5+Math.sin(t*.13)*1.4:5,
-         z:walking?9+Math.sin(t*.1)*.4:9,walking};
+const cowboy={x:5,y:0,z:9,yaw:0,walking:false,feeding:false};
+const gardenRoute=[[5,9],[2,10],[0,12],[0,17],[0,24],[5,28],[7,21],[0,17],[0,12],[5,9]];
+const feedRoute=[[0,12],[0,8],[0,5.6],[0,4.3],[.9,1.15],[0,4.3],[0,5.6],[0,8],[5,9]];
+let route=gardenRoute,waypoint=1,waitUntil=2,feedPoured=false;
+function cowboyPosition(){return cowboy}
+function restoreFeeding(data){
+  lastFeed=Number.isFinite(data?.lastFeed)?Math.max(0,data.lastFeed):0;
+  seedStock=Number.isFinite(data?.seedStock)?Math.min(120,Math.max(0,data.seedStock)):0;
+  musicVolume=Number.isFinite(data?.musicVolume)?Math.max(0,Math.min(1,data.musicVolume)):.25;
+  $('musicVolume').value=musicVolume;
 }
+function updateCowboy(dt){
+  if(mode==='manLap'||mode==='manShoulder'||time<cowboyRestUntil){
+    cowboy.walking=false;
+    return;
+  }
+  if(route===gardenRoute&&time>=2&&Date.now()-lastFeed>=FEED_INTERVAL){
+    route=feedRoute;
+    waypoint=0;
+    feedPoured=false;
+    cowboy.feeding=true;
+  }
+  if(time<waitUntil)return;
+  const [x,z]=route[waypoint],dx=x-cowboy.x,dz=z-cowboy.z;
+  const distance=Math.hypot(dx,dz);
+  if(distance<=.04){
+    cowboy.x=x;
+    cowboy.z=z;
+    cowboy.y=gardenHeight(x,z)??0;
+    if(route===feedRoute&&waypoint===4&&!feedPoured){
+      seedStock=120;
+      lastFeed=Date.now();
+      feedPoured=true;
+      cowboy.walking=false;
+      waitUntil=time+2;
+      if(!outsideFlight)toast('The cowboy filled your seed bowl.');
+      save();
+    }
+    waypoint++;
+    if(waypoint===route.length){
+      route=gardenRoute;
+      waypoint=1;
+      cowboy.feeding=false;
+      cowboy.walking=false;
+      cowboy.yaw=0;
+      waitUntil=time+15;
+    }
+    return;
+  }
+  const walkSpeed=cowboy.feeding?1.55:1.15;
+  const amount=Math.min(1,dt*walkSpeed/distance);
+  cowboy.x+=dx*amount;
+  cowboy.z+=dz*amount;
+  cowboy.y=gardenHeight(cowboy.x,cowboy.z)??0;
+  cowboy.yaw=Math.atan2(dx,-dz);
+  cowboy.walking=true;
+}
+function drawBowlSeeds(){
+  for(let i=0;i<Math.ceil(seedStock/3);i++){
+    const a=i*2.39996,r=.37*Math.sqrt((i+.5)/40);
+    box(1.65+Math.cos(a)*r,.191+.009*(i%3),.6+Math.sin(a)*r*.68,.028,.018,.034,i%3?'#d9bd79':'#a78354');
+  }
+}
+const eatFromBowl=eat;
+eat=function(){
+  if(seedStock<5)return toast('The bowl is empty. The cowboy refills it once a day.');
+  eatFromBowl();
+};
+const eatSeeds=snack;
+snack=function(){
+  if(seedStock<5)return toast('The bowl is empty.');
+  seedStock-=5;
+  eatSeeds();
+};
+$('eat').onclick=eat;
+
+const musicChords=[[48,55,60,64],[45,52,59,60],[41,48,55,57],[43,50,57,62]];
+let nextChord=0,chordIndex=0,musicBus;
+function updateMusic(){
+  if(!audio||audio.state!=='running')return;
+  if(!musicBus){
+    musicBus=audio.createGain();
+    musicBus.gain.value=0;
+    musicBus.connect(audio.destination);
+  }
+  const now=audio.currentTime;
+  musicBus.gain.setTargetAtTime(muted?0:musicVolume*.28,now,.18);
+  if(muted||paused||musicVolume===0||now<nextChord)return;
+  const notes=musicChords[chordIndex++%musicChords.length];
+  for(const [i,note] of notes.entries()){
+    const start=now+i*.36,osc=audio.createOscillator(),envelope=audio.createGain();
+    osc.type=i===0?'sine':'triangle';
+    osc.frequency.value=440*2**((note-69)/12);
+    envelope.gain.setValueAtTime(0,start);
+    envelope.gain.linearRampToValueAtTime(i===0?.075:.035,start+1.1);
+    envelope.gain.linearRampToValueAtTime(0,start+5.6);
+    osc.connect(envelope);
+    envelope.connect(musicBus);
+    osc.start(start);
+    osc.stop(start+5.7);
+  }
+  nextChord=now+5;
+}
+$('musicVolume').oninput=e=>{musicVolume=Number(e.target.value);updateMusic();save()};
+
 function cowboyGeometry(){
- const p=cowboyPosition(),x=p.x,z=p.z,walk=p.walking;
+ const p=cowboyPosition(),x=p.x,z=p.z,walk=p.walking,start=geo.length;
  const sway=walk?Math.sin(time*7)*.07:Math.sin(time*.7)*.018;
  // Two trouser legs: bent while sitting, taking little steps while walking.
  if(walk){
@@ -382,9 +539,43 @@ function cowboyGeometry(){
  ell(x+.65,base-.26,z-.31,.09,.08,.09,'#c39373');
  box(x+.71,base-.19,z-.37,.145,.135,.145,'#c2c6bd');
  ell(x+.71,base-.12,z-.37,.063,.013,.063,'#8b5735');
+ if(p.feeding){
+   const pouring=feedPoured&&time<waitUntil&&waypoint===5;
+   if(pouring){
+     for(let i=0;i<9;i++){
+       const phase=(time*2+i*.113)%1;
+       box(x+.28+phase*.44,1.14-phase*.91,z-.28-phase*.22,.025,.025,.025,'#e7c886');
+     }
+   }
+   box(x+.52,pouring?.9:1.1,z-.48,.25,.36,.18,'#c5a16f');
+ }
+ const sin=Math.sin(p.yaw),cos=Math.cos(p.yaw);
+ for(let i=start;i<geo.length;i+=6){
+   const dx=geo[i]-x,dz=geo[i+2]-z;
+   geo[i]=x+dx*cos-dz*sin;
+   geo[i+2]=z+dx*sin+dz*cos;
+   geo[i+1]+=p.y;
+ }
 }
 const familyBeforeCowboy=familyGeometry;
-familyGeometry=function(){familyBeforeCowboy();cowboyGeometry()};
+familyGeometry=function(){familyBeforeCowboy();cowboyGeometry();drawBowlSeeds()};
+// A second garden and loft, about 45 seconds north at 9 m/s.
+box(0,.02,215,5,.05,322,'#858a7d');
+for(let z=98;z<=380;z+=32){
+  for(const side of [-1,1]){
+    house(side*(13+(z%3)),z,10,8,4,'#b8a18b');
+    box(side*12,.03,z+7,13,.05,7,'#8bab70');
+    for(let i=0;i<3;i++)ell(side*(9+i*3),.65,z+9,.8,.65,.85,'#678858');
+  }
+}
+house(0,407,14,11,5,'#d0b4a1');
+box(0,.01,421,23,.06,17,'#8eaa74');
+box(0,1.35,430,4,2.7,4,'#887259');
+box(0,1.6,427.98,1.4,1.2,.06,'#424d42');
+for(let x=-.65;x<.7;x+=.13)box(x,1.6,427.94,.015,1.2,.015,'#adb4a2');
+box(0,2.79,430,4.4,.18,4.4,'#697668');
+houseRoofs.push({name:'Second pigeon shed',x:0,z:430,w:4.4,d:4.4,h:2.88});
+roofs.push(...houseRoofs.filter(roof=>!roofs.includes(roof)));
 const details=upload(geo);geo=[];
 window.addEventListener('keydown',e=>{
   if(!started||paused||e.repeat)return;
@@ -395,8 +586,8 @@ window.addEventListener('keydown',e=>{
 $('flockFlight').onclick=inviteFlock;$('shoulder').onclick=()=>manPerch('shoulder');$('lapSeat').onclick=()=>manPerch('lap');$('coo').onclick=coo;$('view').onclick=toggleView;$('land').onclick=landNear;$('home').onclick=returnHome;$('fly').onclick=goFly;$('perch').onclick=perch;$('nest').onclick=nest;
 $('backup').onclick=()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Simsim-save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Save exported. Keep this file to restore on another browser.')};$('restore').onclick=()=>$('saveFile').click();$('saveFile').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;restoreGame(JSON.parse(await file.text()));save();toast('Your partner, family and progress have been restored.')}catch{toast('That save could not be read. Your current game has been kept.')}e.target.value=''};
 $('ambience').oninput=e=>{ambienceVolume=+e.target.value;save()};$('effects').oninput=e=>{effectsVolume=+e.target.value;save()};window.addEventListener('keydown',e=>{if(!started||paused||e.repeat)return;({v:toggleView,l:landNear,r:returnHome})[e.key.toLowerCase()]?.()});window.addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){save();activeSounds.forEach(s=>s.pause())}});
-const soundClick=$('sound').onclick;$('sound').onclick=()=>{soundClick();if(muted)activeSounds.forEach(s=>s.pause())};
-try{let raw=localStorage.getItem('simsim3d')||localStorage.getItem('simsim3d-backup');if(raw)restoreGame(JSON.parse(raw))}catch{toast('Could not load browser save. Import a backup if you have one.')}if(partner&&!egg&&!offspring.length)startIncubation();$('ambience').value=ambienceVolume;$('effects').value=effectsVolume;save();ui();
+const soundClick=$('sound').onclick;$('sound').onclick=()=>{soundClick();if(muted)activeSounds.forEach(s=>s.pause());updateMusic()};
+try{let raw=localStorage.getItem('simsim3d')||localStorage.getItem('simsim3d-backup');if(raw){const data=JSON.parse(raw);restoreGame(data)}}catch{toast('Could not load browser save. Import a backup if you have one.')}if(partner&&!egg&&!offspring.length)startIncubation();$('ambience').value=ambienceVolume;$('effects').value=effectsVolume;save();ui();
 nextCoo=Infinity;requestAnimationFrame(frame);
 
 for(const who of ['female','male']){$(who+'Load').onclick=()=>$(who+'Audio').click();$(who+'Audio').onchange=async e=>{const file=e.target.files[0];if(!file)return;if(file.size>3000000)return toast('Please choose a clip smaller than 3 MB.');const reader=new FileReader();reader.onload=()=>{const raw=String(reader.result),base64=raw.slice(raw.indexOf(',')+1);recordings[who]='data:audio/mp4;base64,'+base64;(who==='male'?cooMale:cooFemale).src=recordings[who];save();toast((who==='male'?'Male reply':'Simsim coo')+' loaded and saved. Male playback stops at five seconds.')};reader.readAsDataURL(file)}}
